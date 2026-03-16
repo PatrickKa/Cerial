@@ -2,6 +2,7 @@
 
 
 // Brief struct description
+// @Cerial
 struct GlobalStruct
 {
     int x;
@@ -10,6 +11,7 @@ struct GlobalStruct
 
 namespace n
 {
+// @Cerial
 struct NamespacedStruct  // Trailing comment
 {
     int x;
@@ -18,6 +20,7 @@ struct NamespacedStruct  // Trailing comment
 
 namespace m
 {
+// @Cerial
 struct /* Nobody would place a comment here */ NestedNamespaceStruct
 {
     char c;
@@ -29,16 +32,18 @@ struct /* Nobody would place a comment here */ NestedNamespaceStruct
 
 namespace a::b
 {
+// @Cerial
 struct InlineNamespaceStruct
 {
     int /* comment in member declaration */ x;
 };
-}  /* namespace a::b */
+} /* namespace a::b */
 }  // namespace n
 
 
-namespace
+namespace  // NOLINT(google-build-namespaces)
 {
+// @Cerial
 struct AnonymousNamespaceStruct
 {
     int x;

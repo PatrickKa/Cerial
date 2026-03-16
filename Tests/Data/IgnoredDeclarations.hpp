@@ -3,6 +3,7 @@
 #include <cstddef>
 
 
+// @Cerial
 struct ParentStruct
 {
     struct NestedStruct
@@ -28,6 +29,12 @@ struct ArrayTemplateStruct
     // Normal comment inside struct body
     T data[size];
     int i;  // Trailing member comment
+};
+
+
+struct UnannotatedStruct
+{
+    int x;
 };
 
 

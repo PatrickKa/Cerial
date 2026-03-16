@@ -3,11 +3,13 @@
 
 # cerial_get_structs(<source_file> <out_var>)
 #
-# Parses a C++ source file and returns a list of all non-template struct definitions with their
-# fully qualified, namespace-scoped names. Structs nested inside other structs are excluded.
+# Parses a C++ source file and returns a list of all struct definitions annotated with "// @Cerial",
+# with their fully qualified, namespace-scoped names. Template structs and structs nested inside
+# other structs are excluded.
 function(cerial_get_structs source_file out_var)
     _cerial_read_file("${source_file}" content)
     _cerial_strip_literals("${content}" content)
+    _cerial_mark_annotations("${content}" content)
     _cerial_strip_comments("${content}" content)
     _cerial_strip_using_namespace("${content}" content)
     _cerial_build_event_stream("${content}" events)
@@ -33,17 +35,24 @@ function(_cerial_read_file source_file out_var)
 endfunction()
 
 function(_cerial_strip_literals content out_var)
-    # Character literals must be stripped before string literals and comments
-    # to prevent e.g. '/' or '*' from interfering with comment detection.
+    # Character literals must be stripped before string literals and comments to prevent e.g. '/' or
+    # '*' from interfering with comment detection
     string(REGEX REPLACE "'(\\\\.|[^\\\\'])'" "" content "${content}")
     string(REGEX REPLACE "\"([^\"\n\\\\]|\\\\.)*\"" "" content "${content}")
     set(${out_var} "${content}" PARENT_SCOPE)
 endfunction()
 
+function(_cerial_mark_annotations content out_var)
+    # Replace "// @Cerial" annotation comments with a marker that survives comment stripping. The @
+    # character does not appear in valid C++ outside of literals (already stripped).
+    string(REGEX REPLACE "//[ \t]*@Cerial[ \t]*\n" "@CERIAL\n" content "${content}")
+    set(${out_var} "${content}" PARENT_SCOPE)
+endfunction()
+
 function(_cerial_strip_comments content out_var)
     string(REGEX REPLACE "//[^\n]*" "" content "${content}")
-    # The block-comment pattern /\*[^*]*\*+([^/*][^*]*\*+)*/ matches one
-    # comment at a time without crossing comment boundaries.
+    # The block-comment pattern /\*[^*]*\*+([^/*][^*]*\*+)*/ matches one comment at a time without
+    # crossing comment boundaries
     string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" content "${content}")
     set(${out_var} "${content}" PARENT_SCOPE)
 endfunction()
@@ -54,19 +63,29 @@ function(_cerial_strip_using_namespace content out_var)
     set(${out_var} "${content}" PARENT_SCOPE)
 endfunction()
 
-# Replaces syntactically meaningful tokens with delimited markers and splits
-# the result into an ordered event list.
-# Events: TEMPLATE_STRUCT:<name>, NAMESPACE:<name>, STRUCT:<name>, OPEN, CLOSE
+# Replaces syntactically meaningful tokens with delimited markers and splits the result into an
+# ordered event list.
+#
+# Events: TEMPLATE_STRUCT:<name>, ANNOTATED_STRUCT:<name>, NAMESPACE:<name>, STRUCT:<name>, OPEN,
+#         CLOSE
 function(_cerial_build_event_stream content out_var)
     set(separator "|||")
     set(identifier "${_CERIAL_IDENTIFIER_PATTERN}")
     set(whitespace "${_CERIAL_WHITESPACE_PATTERN}")
 
-    # Template structs first so the plain struct pattern never matches them.
+    # Template structs first so the plain struct pattern never matches them
     string(
         REGEX REPLACE
             "template${whitespace}*<[^;{]*>${whitespace}*struct${whitespace}+(${identifier})[^;{]*\\{"
         "${separator}TEMPLATE_STRUCT:\\1${separator}"
+        content
+        "${content}"
+    )
+
+    # Annotated structs before plain structs so the plain pattern does not consume them
+    string(
+        REGEX REPLACE "@CERIAL${whitespace}*struct${whitespace}+(${identifier})[^;{]*\\{"
+        "${separator}ANNOTATED_STRUCT:\\1${separator}"
         content
         "${content}"
     )
@@ -95,7 +114,7 @@ function(_cerial_build_event_stream content out_var)
     string(REPLACE "{" "${separator}OPEN${separator}" content "${content}")
     string(REPLACE "}" "${separator}CLOSE${separator}" content "${content}")
 
-    # Escape semicolons so that C++ statement terminators do not split list elements.
+    # Escape semicolons so that C++ statement terminators do not split list elements
     string(REPLACE ";" "\\;" content "${content}")
     string(REPLACE "${separator}" ";" events "${content}")
     set(${out_var} "${events}" PARENT_SCOPE)
@@ -110,7 +129,7 @@ function(_cerial_join_qualified_name scope_names scope_types struct_name out_var
             list(GET scope_types ${index} scope_type)
             if(scope_type STREQUAL "namespace")
                 list(GET scope_names ${index} namespace_name)
-                if(NOT namespace_name STREQUAL "") # skip anonymous namespaces
+                if(NOT namespace_name STREQUAL "") # Skip anonymous namespaces
                     # Handle inline namespace declarations (e.g. namespace a::b::c)
                     string(REPLACE "::" ";" namespace_parts "${namespace_name}")
                     foreach(part IN LISTS namespace_parts)
@@ -146,11 +165,11 @@ function(_cerial_process_events events out_var)
         elseif(event MATCHES "^NAMESPACE:(.*)$")
             list(APPEND scope_names "${CMAKE_MATCH_1}")
             list(APPEND scope_types "namespace")
-        elseif(event MATCHES "^(TEMPLATE_STRUCT|STRUCT):(.+)$")
+        elseif(event MATCHES "^(TEMPLATE_STRUCT|ANNOTATED_STRUCT|STRUCT):(.+)$")
             set(kind "${CMAKE_MATCH_1}")
             set(struct_name "${CMAKE_MATCH_2}")
 
-            if(kind STREQUAL "STRUCT")
+            if(kind STREQUAL "ANNOTATED_STRUCT")
                 list(LENGTH scope_types depth)
                 set(parent_is_struct FALSE)
                 if(depth GREATER 0)

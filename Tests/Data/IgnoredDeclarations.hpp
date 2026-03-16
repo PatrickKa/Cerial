@@ -8,10 +8,10 @@ struct ParentStruct
 {
     struct NestedStruct
     {
-        int x;
+        int i;
     };
 
-    int y;
+    int j;
 };
 
 
@@ -28,13 +28,13 @@ struct ArrayTemplateStruct
 {
     // Normal comment inside struct body
     T data[size];
-    int i;  // Trailing member comment
+    int k;  // Trailing member comment
 };
 
 
 struct UnannotatedStruct
 {
-    int x;
+    int l;
 };
 
 

@@ -5,7 +5,7 @@
 // @Cerial
 struct GlobalStruct
 {
-    int x;
+    bool b;
 };
 
 
@@ -14,7 +14,7 @@ namespace n
 // @Cerial
 struct NamespacedStruct  // Trailing comment
 {
-    int x;
+    long l;
 };
 
 
@@ -35,7 +35,7 @@ namespace a::b
 // @Cerial
 struct InlineNamespaceStruct
 {
-    int /* comment in member declaration */ x;
+    short /* comment in member declaration */ s;
 };
 } /* namespace a::b */
 }  // namespace n
@@ -46,6 +46,6 @@ namespace  // NOLINT(google-build-namespaces)
 // @Cerial
 struct AnonymousNamespaceStruct
 {
-    int x;
+    double d;
 };
 }

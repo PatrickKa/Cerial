@@ -6,6 +6,9 @@
 # Parses a C++ source file and returns a list of all struct definitions annotated with "// @Cerial",
 # with their fully qualified, namespace-scoped names. Template structs and structs nested inside
 # other structs are excluded.
+#
+# For each struct at index <i> in the returned list, also sets <out_var>_members_<i> to contain the
+# list of member variable names in declaration order
 function(cerial_get_structs source_file out_var)
     _cerial_read_file("${source_file}" content)
     _cerial_strip_literals("${content}" content)
@@ -15,6 +18,13 @@ function(cerial_get_structs source_file out_var)
     _cerial_build_event_stream("${content}" events)
     _cerial_process_events("${events}" result)
     set(${out_var} "${result}" PARENT_SCOPE)
+    list(LENGTH result n_structs)
+    if(n_structs GREATER 0)
+        math(EXPR last "${n_structs} - 1")
+        foreach(index RANGE 0 ${last})
+            set(${out_var}_members_${index} "${result_members_${index}}" PARENT_SCOPE)
+        endforeach()
+    endif()
 endfunction()
 
 # --- Private variables ---
@@ -120,6 +130,95 @@ function(_cerial_build_event_stream content out_var)
     set(${out_var} "${events}" PARENT_SCOPE)
 endfunction()
 
+function(_cerial_process_events events out_var)
+    set(scope_names "")
+    set(scope_types "")
+    set(result "")
+    set(collecting FALSE)
+    set(member_depth 0)
+    set(current_struct_index -1)
+    set(current_members "")
+
+    foreach(event IN LISTS events)
+        string(STRIP "${event}" event)
+        if(event STREQUAL "")
+            continue()
+        elseif(event STREQUAL "OPEN")
+            list(APPEND scope_names "")
+            list(APPEND scope_types "other")
+            if(collecting)
+                math(EXPR member_depth "${member_depth} + 1")
+            endif()
+        elseif(event STREQUAL "CLOSE")
+            list(LENGTH scope_names depth)
+            if(depth GREATER 0)
+                list(POP_BACK scope_names)
+                list(POP_BACK scope_types)
+            endif()
+            if(collecting)
+                if(member_depth GREATER 0)
+                    math(EXPR member_depth "${member_depth} - 1")
+                else()
+                    set(collecting FALSE)
+                    set(${out_var}_members_${current_struct_index}
+                        "${current_members}"
+                        PARENT_SCOPE
+                    )
+                endif()
+            endif()
+        elseif(event MATCHES "^NAMESPACE:(.*)$")
+            list(APPEND scope_names "${CMAKE_MATCH_1}")
+            list(APPEND scope_types "namespace")
+        elseif(event MATCHES "^(TEMPLATE_STRUCT|ANNOTATED_STRUCT|STRUCT):(.+)$")
+            set(kind "${CMAKE_MATCH_1}")
+            set(struct_name "${CMAKE_MATCH_2}")
+            set(started_collecting FALSE)
+
+            if(kind STREQUAL "ANNOTATED_STRUCT")
+                list(LENGTH scope_types depth)
+                set(parent_is_struct FALSE)
+                if(depth GREATER 0)
+                    math(EXPR top "${depth} - 1")
+                    list(GET scope_types ${top} parent_type)
+                    if(parent_type STREQUAL "struct")
+                        set(parent_is_struct TRUE)
+                    endif()
+                endif()
+
+                if(NOT parent_is_struct)
+                    list(LENGTH result current_struct_index)
+                    _cerial_join_qualified_name(
+                        "${scope_names}"
+                        "${scope_types}"
+                        "${struct_name}"
+                        qualified_name
+                    )
+                    list(APPEND result "${qualified_name}")
+                    set(collecting TRUE)
+                    set(member_depth 0)
+                    set(current_members "")
+                    set(started_collecting TRUE)
+                endif()
+            endif()
+
+            list(APPEND scope_names "${struct_name}")
+            list(APPEND scope_types "struct")
+            # Nested structs consume their opening brace, so they increase member depth.
+            # But the struct we just started collecting for does not.
+            if(collecting AND NOT started_collecting)
+                math(EXPR member_depth "${member_depth} + 1")
+            endif()
+        else()
+            if(collecting AND member_depth EQUAL 0)
+                _cerial_parse_member_names("${event}" new_members)
+                list(APPEND current_members ${new_members})
+            endif()
+        endif()
+    endforeach()
+
+    set(${out_var} "${result}" PARENT_SCOPE)
+endfunction()
+
 function(_cerial_join_qualified_name scope_names scope_types struct_name out_var)
     set(name_parts "")
     list(LENGTH scope_names depth)
@@ -144,57 +243,23 @@ function(_cerial_join_qualified_name scope_names scope_types struct_name out_var
     set(${out_var} "${qualified_name}" PARENT_SCOPE)
 endfunction()
 
-function(_cerial_process_events events out_var)
-    set(scope_names "")
-    set(scope_types "")
-    set(result "")
-
-    foreach(event IN LISTS events)
-        string(STRIP "${event}" event)
-        if(event STREQUAL "")
+function(_cerial_parse_member_names text out_var)
+    set(identifier "${_CERIAL_IDENTIFIER_PATTERN}")
+    set(names "")
+    # The text contains literal semicolons (preserved by escaping in the event stream).
+    # Treating it as a list splits by semicolons to get individual declarations.
+    foreach(declaration IN LISTS text)
+        string(STRIP "${declaration}" declaration)
+        if(declaration STREQUAL "")
             continue()
-        elseif(event STREQUAL "OPEN")
-            list(APPEND scope_names "")
-            list(APPEND scope_types "other")
-        elseif(event STREQUAL "CLOSE")
-            list(LENGTH scope_names depth)
-            if(depth GREATER 0)
-                list(POP_BACK scope_names)
-                list(POP_BACK scope_types)
-            endif()
-        elseif(event MATCHES "^NAMESPACE:(.*)$")
-            list(APPEND scope_names "${CMAKE_MATCH_1}")
-            list(APPEND scope_types "namespace")
-        elseif(event MATCHES "^(TEMPLATE_STRUCT|ANNOTATED_STRUCT|STRUCT):(.+)$")
-            set(kind "${CMAKE_MATCH_1}")
-            set(struct_name "${CMAKE_MATCH_2}")
-
-            if(kind STREQUAL "ANNOTATED_STRUCT")
-                list(LENGTH scope_types depth)
-                set(parent_is_struct FALSE)
-                if(depth GREATER 0)
-                    math(EXPR top "${depth} - 1")
-                    list(GET scope_types ${top} parent_type)
-                    if(parent_type STREQUAL "struct")
-                        set(parent_is_struct TRUE)
-                    endif()
-                endif()
-
-                if(NOT parent_is_struct)
-                    _cerial_join_qualified_name(
-                        "${scope_names}"
-                        "${scope_types}"
-                        "${struct_name}"
-                        qualified_name
-                    )
-                    list(APPEND result "${qualified_name}")
-                endif()
-            endif()
-
-            list(APPEND scope_names "${struct_name}")
-            list(APPEND scope_types "struct")
+        endif()
+        # Strip default value initializers (e.g. "int x = 5" -> "int x")
+        string(REGEX REPLACE "=.*$" "" declaration "${declaration}")
+        string(STRIP "${declaration}" declaration)
+        # The greedy .+ matches the type, then backtracks to leave the last identifier as the name
+        if(declaration MATCHES "^.+[ \t]+(${identifier})$")
+            list(APPEND names "${CMAKE_MATCH_1}")
         endif()
     endforeach()
-
-    set(${out_var} "${result}" PARENT_SCOPE)
+    set(${out_var} "${names}" PARENT_SCOPE)
 endfunction()

@@ -42,4 +42,20 @@ list(GET structs 0 struct)
 check("${struct}" STREQUAL "ParentStruct")
 check("${structs_members_0}" STREQUAL "j")
 
+# --- Code generation ---
+
+set(expected_dir "${data_dir}/ExpectedOutput")
+
+cerial_get_structs("${data_dir}/StructsInNamespaces.hpp" structs)
+cerial_generate_code(structs StructsInNamespaces.hpp code)
+file(READ "${expected_dir}/StructsInNamespaces.hpp" expected)
+string(REPLACE "\r\n" "\n" expected "${expected}")
+check("${code}" STREQUAL "${expected}")
+
+cerial_get_structs("${data_dir}/IgnoredDeclarations.hpp" structs)
+cerial_generate_code(structs IgnoredDeclarations.hpp code)
+file(READ "${expected_dir}/IgnoredDeclarations.hpp" expected)
+string(REPLACE "\r\n" "\n" expected "${expected}")
+check("${code}" STREQUAL "${expected}")
+
 print_test_report()

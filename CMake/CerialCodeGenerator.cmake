@@ -27,6 +27,30 @@ function(cerial_get_structs source_file out_var)
     endif()
 endfunction()
 
+# cerial_generate_code(<structs_var> <source_include> <out_var>)
+#
+# Takes the variable name prefix from cerial_get_structs and generates C++ serialization code.
+# Currently generates SerialSize specializations. <source_include> is the include path for the
+# header containing the struct definitions. Sets <out_var> to the generated code string.
+function(cerial_generate_code structs_var source_include out_var)
+    set(structs "${${structs_var}}")
+    set(code "#include <${source_include}>\n")
+    string(APPEND code "\n")
+    string(APPEND code "#include <Cerial/Cerial.hpp>\n")
+    list(LENGTH structs n_structs)
+    if(n_structs GREATER 0)
+        math(EXPR last "${n_structs} - 1")
+        foreach(index RANGE 0 ${last})
+            list(GET structs ${index} struct_name)
+            set(members "${${structs_var}_members_${index}}")
+            string(APPEND code "\n\n")
+            _cerial_generate_serial_size("${struct_name}" "${members}" snippet)
+            string(APPEND code "${snippet}")
+        endforeach()
+    endif()
+    set(${out_var} "${code}" PARENT_SCOPE)
+endfunction()
+
 # --- Private variables ---
 
 set(_CERIAL_IDENTIFIER_PATTERN "[A-Za-z_][A-Za-z0-9_]*")
@@ -217,6 +241,24 @@ function(_cerial_process_events events out_var)
     endforeach()
 
     set(${out_var} "${result}" PARENT_SCOPE)
+endfunction()
+
+function(_cerial_generate_serial_size struct_name members out_var)
+    set(terms "")
+    foreach(member IN LISTS members)
+        list(APPEND terms "SerialSize<decltype(${struct_name}::${member})>()")
+    endforeach()
+    if(terms)
+        list(JOIN terms "\n         + " return_expression)
+    else()
+        set(return_expression "0")
+    endif()
+    set(code "template<>\n")
+    string(APPEND code "constexpr auto cerial::SerialSize<${struct_name}>() -> std::size_t\n")
+    string(APPEND code "{\n")
+    string(APPEND code "    return ${return_expression};\n")
+    string(APPEND code "}\n")
+    set(${out_var} "${code}" PARENT_SCOPE)
 endfunction()
 
 function(_cerial_join_qualified_name scope_names scope_types struct_name out_var)

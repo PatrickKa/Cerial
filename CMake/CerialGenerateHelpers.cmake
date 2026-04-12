@@ -1,6 +1,3 @@
-# TODO:
-# - Read and try to understand the code
-
 # cerial_get_structs(<source_file> <out_var>)
 #
 # Parses a C++ source file and returns a list of all struct definitions annotated with "// @Cerial",

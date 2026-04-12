@@ -1,3 +1,32 @@
+# cerial_compute_source_include(<source_file> <include_dirs> <out_var>)
+#
+# Finds the most specific include directory that is a prefix of <source_file> and returns the
+# relative path from that directory. Used by the build-time driver script to determine the correct
+# #include path for the source header inside generated files.
+function(cerial_compute_source_include source_file include_dirs out_var)
+    set(best_include "")
+    set(best_length -1)
+    foreach(dir IN LISTS include_dirs)
+        cmake_path(IS_PREFIX dir "${source_file}" is_prefix)
+        if(is_prefix)
+            cmake_path(RELATIVE_PATH source_file BASE_DIRECTORY "${dir}" OUTPUT_VARIABLE candidate)
+            string(LENGTH "${dir}" dir_length)
+            if(dir_length GREATER best_length)
+                set(best_include "${candidate}")
+                set(best_length ${dir_length})
+            endif()
+        endif()
+    endforeach()
+    if(best_include STREQUAL "")
+        message(
+            FATAL_ERROR
+            "cerial: Could not determine include path for '${source_file}'. "
+            "None of the target's include directories is a prefix of this file."
+        )
+    endif()
+    set(${out_var} "${best_include}" PARENT_SCOPE)
+endfunction()
+
 # cerial_get_structs(<source_file> <out_var>)
 #
 # Parses a C++ source file and returns a list of all struct definitions annotated with "// @Cerial",

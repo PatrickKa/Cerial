@@ -30,13 +30,21 @@ endfunction()
 # cerial_generate_code(<structs_var> <source_include> <out_var>)
 #
 # Takes the variable name prefix from cerial_get_structs and generates C++ serialization code.
-# Currently generates SerialSize specializations. <source_include> is the include path for the
-# header containing the struct definitions. Sets <out_var> to the generated code string.
+# Generates SerialSize, Serialize, and Deserialize for each struct, grouped by struct.
+# <source_include> is the include path for the header containing the struct definitions. Sets
+# <out_var> to the generated code string.
 function(cerial_generate_code structs_var source_include out_var)
     set(structs "${${structs_var}}")
-    set(code "#include <${source_include}>\n")
+    set(code "#pragma once\n")
     string(APPEND code "\n")
+    string(APPEND code "#include <${source_include}>\n")
+    string(APPEND code "\n")
+    string(APPEND code "#include <Cerial/Byte.hpp>\n")
     string(APPEND code "#include <Cerial/Cerial.hpp>\n")
+    string(APPEND code "\n")
+    string(APPEND code "#include <bit>\n")
+    string(APPEND code "#include <cstddef>\n")
+    string(APPEND code "#include <span>\n")
     list(LENGTH structs n_structs)
     if(n_structs GREATER 0)
         math(EXPR last "${n_structs} - 1")
@@ -44,7 +52,7 @@ function(cerial_generate_code structs_var source_include out_var)
             list(GET structs ${index} struct_name)
             set(members "${${structs_var}_members_${index}}")
             string(APPEND code "\n\n")
-            _cerial_generate_serial_size("${struct_name}" "${members}" snippet)
+            _cerial_generate_struct_serialization("${struct_name}" "${members}" snippet)
             string(APPEND code "${snippet}")
         endforeach()
     endif()
@@ -243,6 +251,42 @@ function(_cerial_process_events events out_var)
     set(${out_var} "${result}" PARENT_SCOPE)
 endfunction()
 
+function(_cerial_generate_struct_serialization struct_name members out_var)
+    _cerial_split_qualified_name("${struct_name}" namespace_part bare_name)
+
+    _cerial_generate_serial_size("${struct_name}" "${members}" code)
+    _cerial_generate_serialize("${bare_name}" "${members}" serialize_code)
+    _cerial_generate_deserialize("${bare_name}" "${members}" deserialize_code)
+
+    string(APPEND code "\n\n")
+    if(NOT namespace_part STREQUAL "")
+        string(APPEND code "namespace ${namespace_part}\n")
+        string(APPEND code "{\n")
+        string(APPEND code "${serialize_code}\n\n")
+        string(APPEND code "${deserialize_code}")
+        string(APPEND code "}\n")
+    else()
+        string(APPEND code "${serialize_code}\n\n")
+        string(APPEND code "${deserialize_code}")
+    endif()
+
+    set(${out_var} "${code}" PARENT_SCOPE)
+endfunction()
+
+function(_cerial_split_qualified_name qualified_name out_namespace out_name)
+    string(FIND "${qualified_name}" "::" last_separator REVERSE)
+    if(last_separator EQUAL -1)
+        set(${out_namespace} "" PARENT_SCOPE)
+        set(${out_name} "${qualified_name}" PARENT_SCOPE)
+    else()
+        string(SUBSTRING "${qualified_name}" 0 ${last_separator} namespace_part)
+        math(EXPR name_start "${last_separator} + 2")
+        string(SUBSTRING "${qualified_name}" ${name_start} -1 bare_name)
+        set(${out_namespace} "${namespace_part}" PARENT_SCOPE)
+        set(${out_name} "${bare_name}" PARENT_SCOPE)
+    endif()
+endfunction()
+
 function(_cerial_generate_serial_size struct_name members out_var)
     set(terms "")
     foreach(member IN LISTS members)
@@ -257,6 +301,43 @@ function(_cerial_generate_serial_size struct_name members out_var)
     string(APPEND code "constexpr auto cerial::SerialSize<${struct_name}>() -> std::size_t\n")
     string(APPEND code "{\n")
     string(APPEND code "    return ${return_expression};\n")
+    string(APPEND code "}\n")
+    set(${out_var} "${code}" PARENT_SCOPE)
+endfunction()
+
+function(_cerial_generate_serialize bare_name members out_var)
+    set(code "template<std::endian endianness>\n")
+    string(
+        APPEND code
+        "auto Serialize(${bare_name} const & value, std::span<cerial::Byte> destination)\n"
+    )
+    string(APPEND code "    -> std::span<cerial::Byte>\n")
+    string(APPEND code "{\n")
+    string(APPEND code "    using cerial::Serialize;\n")
+    foreach(member IN LISTS members)
+        string(
+            APPEND code
+            "    destination = Serialize<endianness>(value.${member}, destination);\n"
+        )
+    endforeach()
+    string(APPEND code "    return destination;\n")
+    string(APPEND code "}\n")
+    set(${out_var} "${code}" PARENT_SCOPE)
+endfunction()
+
+function(_cerial_generate_deserialize bare_name members out_var)
+    set(code "template<std::endian endianness>\n")
+    string(
+        APPEND code
+        "auto Deserialize(${bare_name} * value, std::span<cerial::Byte const> source)\n"
+    )
+    string(APPEND code "    -> std::span<cerial::Byte const>\n")
+    string(APPEND code "{\n")
+    string(APPEND code "    using cerial::Deserialize;\n")
+    foreach(member IN LISTS members)
+        string(APPEND code "    source = Deserialize<endianness>(&value->${member}, source);\n")
+    endforeach()
+    string(APPEND code "    return source;\n")
     string(APPEND code "}\n")
     set(${out_var} "${code}" PARENT_SCOPE)
 endfunction()

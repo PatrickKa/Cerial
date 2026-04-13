@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.31)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../CMake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../CMake")
 include(CMakeUnit)
 include(CerialGenerateHelpers)
 
-set(data_dir "${CMAKE_CURRENT_LIST_DIR}/Data")
+set(data_dir "${CMAKE_CURRENT_LIST_DIR}/../Data")
 
 # --- Structs in namespaces ---
 

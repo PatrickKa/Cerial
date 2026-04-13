@@ -1,5 +1,7 @@
 #include <Cerial/Cerial.hpp>
 
+#include <Cerial/Byte.hpp>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <array>
@@ -8,8 +10,6 @@
 #include <cstdint>
 #include <span>
 #include <type_traits>
-
-#include "Cerial/Byte.hpp"
 
 
 using cerial::Byte;

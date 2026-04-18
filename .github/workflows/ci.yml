@@ -156,9 +156,9 @@ jobs:
         run: |
           cmake --preset ${{ matrix.preset }}
           cmake --build --preset ${{ matrix.preset }}-debug | tee ${{ matrix.compiler }}_Debug_build.log
-          ctest --preset ${{ matrix.preset }}
+          ctest --preset ${{ matrix.preset }}-debug
           cmake --build --preset ${{ matrix.preset }}-release | tee ${{ matrix.compiler }}_Release_build.log
-          ctest --preset ${{ matrix.preset }}
+          ctest --preset ${{ matrix.preset }}-release
 
       - name: Upload build logs as artifact
         uses: actions/upload-artifact@v4

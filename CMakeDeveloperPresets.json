@@ -143,28 +143,68 @@
   ],
   "testPresets": [
     {
-      "name": "dev-linux-gcc",
-      "configurePreset": "dev-linux-gcc"
+      "name": "dev-common",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
     },
     {
-      "name": "dev-linux-clang",
-      "configurePreset": "dev-linux-clang"
+      "name": "dev-linux-gcc-debug",
+      "inherits": "dev-common",
+      "configurePreset": "dev-linux-gcc",
+      "configuration": "Debug"
+    },
+    {
+      "name": "dev-linux-gcc-release",
+      "inherits": "dev-linux-gcc-debug",
+      "configuration": "Release"
+    },
+    {
+      "name": "dev-linux-clang-debug",
+      "inherits": "dev-common",
+      "configurePreset": "dev-linux-clang",
+      "configuration": "Debug"
+    },
+    {
+      "name": "dev-linux-clang-release",
+      "inherits": "dev-linux-clang-debug",
+      "configuration": "Release"
     },
     {
       "name": "dev-linux-coverage",
+      "inherits": "dev-common",
       "configurePreset": "dev-linux-coverage"
     },
     {
       "name": "dev-linux-sanitize",
+      "inherits": "dev-common",
       "configurePreset": "dev-linux-sanitize"
     },
     {
-      "name": "dev-windows-msvc",
-      "configurePreset": "dev-windows-msvc"
+      "name": "dev-windows-msvc-debug",
+      "inherits": "dev-common",
+      "configurePreset": "dev-windows-msvc",
+      "configuration": "Debug"
     },
     {
-      "name": "dev-windows-clang-cl",
-      "configurePreset": "dev-windows-clang-cl"
+      "name": "dev-windows-msvc-release",
+      "inherits": "dev-windows-msvc-debug",
+      "configuration": "Release"
+    },
+    {
+      "name": "dev-windows-clang-cl-debug",
+      "inherits": "dev-common",
+      "configurePreset": "dev-windows-clang-cl",
+      "configuration": "Debug"
+    },
+    {
+      "name": "dev-windows-clang-cl-release",
+      "inherits": "dev-windows-clang-cl-debug",
+      "configuration": "Release"
     }
   ],
   "workflowPresets": [
@@ -182,7 +222,7 @@
         },
         {
           "type": "test",
-          "name": "dev-linux-gcc"
+          "name": "dev-linux-gcc-debug"
         },
         {
           "type": "build",
@@ -190,7 +230,7 @@
         },
         {
           "type": "test",
-          "name": "dev-linux-gcc"
+          "name": "dev-linux-gcc-release"
         }
       ]
     },
@@ -208,7 +248,7 @@
         },
         {
           "type": "test",
-          "name": "dev-linux-clang"
+          "name": "dev-linux-clang-debug"
         },
         {
           "type": "build",
@@ -216,7 +256,7 @@
         },
         {
           "type": "test",
-          "name": "dev-linux-clang"
+          "name": "dev-linux-clang-release"
         }
       ]
     },
@@ -274,7 +314,7 @@
         },
         {
           "type": "test",
-          "name": "dev-windows-msvc"
+          "name": "dev-windows-msvc-debug"
         },
         {
           "type": "build",
@@ -282,7 +322,7 @@
         },
         {
           "type": "test",
-          "name": "dev-windows-msvc"
+          "name": "dev-windows-msvc-release"
         }
       ]
     },
@@ -300,7 +340,7 @@
         },
         {
           "type": "test",
-          "name": "dev-windows-clang-cl"
+          "name": "dev-windows-clang-cl-debug"
         },
         {
           "type": "build",
@@ -308,7 +348,7 @@
         },
         {
           "type": "test",
-          "name": "dev-windows-clang-cl"
+          "name": "dev-windows-clang-cl-release"
         }
       ]
     }

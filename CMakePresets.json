@@ -290,10 +290,17 @@
       }
     },
     {
-      "name": "ci-ubuntu",
-      "description": "Run latest tests built with GCC or Clang on Ubuntu runners",
+      "name": "ci-ubuntu-debug",
+      "description": "Run latest tests built with GCC or Clang on Ubuntu runners in Debug configuration",
       "inherits": "ci-common",
-      "configurePreset": "ci-ubuntu"
+      "configurePreset": "ci-ubuntu",
+      "configuration": "Debug"
+    },
+    {
+      "name": "ci-ubuntu-release",
+      "description": "Run latest tests built with GCC or Clang on Ubuntu runners in Release configuration",
+      "inherits": "ci-ubuntu-debug",
+      "configuration": "Release"
     },
     {
       "name": "ci-coverage",
@@ -312,16 +319,30 @@
       }
     },
     {
-      "name": "ci-windows-msvc",
-      "description": "Run the latest tests built with MSVC on Windows runners",
+      "name": "ci-windows-msvc-debug",
+      "description": "Run the latest tests built with MSVC on Windows runners in Debug configuration",
       "inherits": "ci-common",
-      "configurePreset": "ci-windows-msvc"
+      "configurePreset": "ci-windows-msvc",
+      "configuration": "Debug"
     },
     {
-      "name": "ci-windows-clang-cl",
-      "description": "Run the latest tests built with clang-cl on Windows runners",
+      "name": "ci-windows-msvc-release",
+      "description": "Run the latest tests built with MSVC on Windows runners in Release configuration",
+      "inherits": "ci-windows-msvc-debug",
+      "configuration": "Release"
+    },
+    {
+      "name": "ci-windows-clang-cl-debug",
+      "description": "Run the latest tests built with clang-cl on Windows runners in Debug configuration",
       "inherits": "ci-common",
-      "configurePreset": "ci-windows-clang-cl"
+      "configurePreset": "ci-windows-clang-cl",
+      "configuration": "Debug"
+    },
+    {
+      "name": "ci-windows-clang-cl-release",
+      "description": "Run the latest tests built with clang-cl on Windows runners in Release configuration",
+      "inherits": "ci-windows-clang-cl-debug",
+      "configuration": "Release"
     }
   ],
   "workflowPresets": [
@@ -339,7 +360,7 @@
         },
         {
           "type": "test",
-          "name": "ci-ubuntu"
+          "name": "ci-ubuntu-debug"
         },
         {
           "type": "build",
@@ -347,7 +368,7 @@
         },
         {
           "type": "test",
-          "name": "ci-ubuntu"
+          "name": "ci-ubuntu-release"
         }
       ]
     },
@@ -431,7 +452,7 @@
         },
         {
           "type": "test",
-          "name": "ci-windows-msvc"
+          "name": "ci-windows-msvc-debug"
         },
         {
           "type": "build",
@@ -439,7 +460,7 @@
         },
         {
           "type": "test",
-          "name": "ci-windows-msvc"
+          "name": "ci-windows-msvc-release"
         }
       ]
     },
@@ -457,7 +478,7 @@
         },
         {
           "type": "test",
-          "name": "ci-windows-clang-cl"
+          "name": "ci-windows-clang-cl-debug"
         },
         {
           "type": "build",
@@ -465,7 +486,7 @@
         },
         {
           "type": "test",
-          "name": "ci-windows-clang-cl"
+          "name": "ci-windows-clang-cl-release"
         }
       ]
     }

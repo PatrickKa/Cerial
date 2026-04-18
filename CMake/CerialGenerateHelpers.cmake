@@ -134,18 +134,28 @@ endfunction()
 # Replaces syntactically meaningful tokens with delimited markers and splits the result into an
 # ordered event list.
 #
-# Events: TEMPLATE_STRUCT:<name>, ANNOTATED_STRUCT:<name>, NAMESPACE:<name>, STRUCT:<name>, OPEN,
-#         CLOSE
+# Events: ANNOTATED_STRUCT_TEMPLATE:<name>, STRUCT_TEMPLATE:<name>, ANNOTATED_STRUCT:<name>,
+#         NAMESPACE:<name>, STRUCT:<name>, OPEN, CLOSE
 function(_cerial_build_event_stream content out_var)
     set(separator "|||")
     set(identifier "${_CERIAL_IDENTIFIER_PATTERN}")
     set(whitespace "${_CERIAL_WHITESPACE_PATTERN}")
 
-    # Template structs first so the plain struct pattern never matches them
+    # Annotated struct templates before plain struct templates so we can warn the user that they
+    # are not supported
+    string(
+        REGEX REPLACE
+            "@CERIAL${whitespace}*template${whitespace}*<[^;{]*>${whitespace}*struct${whitespace}+(${identifier})[^;{]*\\{"
+        "${separator}ANNOTATED_STRUCT_TEMPLATE:\\1${separator}"
+        content
+        "${content}"
+    )
+
+    # Struct templates before plain structs so the plain struct pattern never matches them
     string(
         REGEX REPLACE
             "template${whitespace}*<[^;{]*>${whitespace}*struct${whitespace}+(${identifier})[^;{]*\\{"
-        "${separator}TEMPLATE_STRUCT:\\1${separator}"
+        "${separator}STRUCT_TEMPLATE:\\1${separator}"
         content
         "${content}"
     )
@@ -227,12 +237,22 @@ function(_cerial_process_events events out_var)
         elseif(event MATCHES "^NAMESPACE:(.*)$")
             list(APPEND scope_names "${CMAKE_MATCH_1}")
             list(APPEND scope_types "namespace")
-        elseif(event MATCHES "^(TEMPLATE_STRUCT|ANNOTATED_STRUCT|STRUCT):(.+)$")
+        elseif(
+            event
+                MATCHES
+                "^(STRUCT_TEMPLATE|ANNOTATED_STRUCT_TEMPLATE|ANNOTATED_STRUCT|STRUCT):(.+)$"
+        )
             set(kind "${CMAKE_MATCH_1}")
             set(struct_name "${CMAKE_MATCH_2}")
             set(started_collecting FALSE)
 
-            if(kind STREQUAL "ANNOTATED_STRUCT")
+            if(kind STREQUAL "ANNOTATED_STRUCT_TEMPLATE")
+                message(
+                    WARNING
+                    "cerial: struct template '${struct_name}' is annotated with @Cerial but "
+                    "struct templates are not supported"
+                )
+            elseif(kind STREQUAL "ANNOTATED_STRUCT")
                 list(LENGTH scope_types depth)
                 set(parent_is_struct FALSE)
                 if(depth GREATER 0)
@@ -243,7 +263,13 @@ function(_cerial_process_events events out_var)
                     endif()
                 endif()
 
-                if(NOT parent_is_struct)
+                if(parent_is_struct)
+                    message(
+                        WARNING
+                        "cerial: nested struct '${struct_name}' is annotated with @Cerial but "
+                        "nested structs are not supported"
+                    )
+                else()
                     list(LENGTH result current_struct_index)
                     _cerial_join_qualified_name(
                         "${scope_names}"

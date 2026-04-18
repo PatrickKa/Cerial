@@ -6,6 +6,7 @@
 // @Cerial
 struct ParentStruct
 {
+    // @Cerial
     struct NestedStruct
     {
         int i;
@@ -22,16 +23,18 @@ struct ParentStruct
 };
 
 
+// @Cerial
 template<typename T>
 // This is an unusual place for a comment
-struct SimpleTemplateStruct
+struct SimpleStructTemplate
 {
     T value;
 };
 
 
+// @Cerial
 template<typename T, std::/* comment splitting a qualified type */ size_t size>
-struct ArrayTemplateStruct
+struct StructTemplateWithArray
 {
     // Normal comment inside struct body
     T data[size];

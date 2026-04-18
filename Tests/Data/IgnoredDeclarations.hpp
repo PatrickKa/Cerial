@@ -12,6 +12,13 @@ struct ParentStruct
     };
 
     int j;
+
+    [[nodiscard]] auto GetJ() const -> int
+    {
+        return j;
+    }
+
+    friend constexpr auto operator==(ParentStruct const &, ParentStruct const &) -> bool = default;
 };
 
 

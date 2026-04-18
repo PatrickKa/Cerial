@@ -1,11 +1,15 @@
 #pragma once
 
+#include <compare>
+
 
 // Brief struct description
 // @Cerial
 struct GlobalStruct
 {
-    bool b;
+    bool b = false;
+
+    friend constexpr auto operator==(GlobalStruct const &, GlobalStruct const &) -> bool = default;
 };
 
 
@@ -14,7 +18,13 @@ namespace n
 // @Cerial
 struct NamespacedStruct  // Trailing comment
 {
-    long l;
+    long l = 1;
+
+    [[nodiscard]] auto Getl() const -> long;
+    auto Setl(long value) -> void;
+
+    friend constexpr auto operator<=>(NamespacedStruct const &, NamespacedStruct const &)
+        -> std::strong_ordering = default;
 };
 
 
@@ -26,6 +36,13 @@ struct /* Nobody would place a comment here */ NestedNamespaceStruct
     char c;
     int i;
     float f;
+
+    auto GetC() -> char;
+    int GetI();
+    void SetI(int integer);
+
+    auto operator==(NestedNamespaceStruct const &) const -> bool = default;
+    bool operator!=(NestedNamespaceStruct const &) const = default;
 };
 }  // namespace m
 
@@ -47,5 +64,8 @@ namespace  // NOLINT(google-build-namespaces)
 struct AnonymousNamespaceStruct
 {
     double d;
+
+    auto F() -> void;
+    void G();
 };
 }

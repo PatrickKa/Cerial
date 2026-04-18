@@ -402,9 +402,18 @@ function(_cerial_parse_member_names text out_var)
         if(declaration STREQUAL "")
             continue()
         endif()
-        # Strip default value initializers (e.g. "int x = 5" -> "int x")
-        string(REGEX REPLACE "=.*$" "" declaration "${declaration}")
+        # Strip default value initializers (e.g. "int x = 5" -> "int x"). The character classes
+        # around `=` exclude assignment operators that are part of `==`, `<=`, `>=`, `!=` so that
+        # operator overloads like operator==() are not mangled. The captured character before `=`
+        # is preserved via \1.
+        string(REGEX REPLACE "([^!<>=])=[^=].*$" "\\1" declaration "${declaration}")
         string(STRIP "${declaration}" declaration)
+        # Skip declarations containing parentheses. These are member or friend function
+        # declarations, not data members. Function pointers happen to be skipped too, but those
+        # are not directly serializable anyway.
+        if(declaration MATCHES "\\(")
+            continue()
+        endif()
         # The greedy .+ matches the type, then backtracks to leave the last identifier as the name
         if(declaration MATCHES "^.+[ \t]+(${identifier})$")
             list(APPEND names "${CMAKE_MATCH_1}")

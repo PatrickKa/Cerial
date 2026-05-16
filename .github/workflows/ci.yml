@@ -20,7 +20,7 @@ jobs:
     outputs:
       LLVM_MAJOR_VERSION: ${{ env.LLVM_MAJOR_VERSION}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up tools
         run: |
@@ -80,7 +80,7 @@ jobs:
             os: ubuntu-24.04
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up C++ compiler and tools
         if: ${{ matrix.compiler != 'MSVC' }}
@@ -161,7 +161,7 @@ jobs:
           ctest --preset ${{ matrix.preset }}-release
 
       - name: Upload build logs as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: BuildLogs${{ matrix.compiler-pascal-case }}
           path: |
@@ -197,7 +197,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download all build log artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: BuildLogs*
           merge-multiple: true

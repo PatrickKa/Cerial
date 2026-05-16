@@ -210,18 +210,18 @@
     },
     {
       "name": "ci-ubuntu-debug-valgrind",
-      "description": "Build target 'ExperimentalMemCheck' which runs the tests with Valgrind",
+      "description": "Build target 'MemCheck' which runs the tests with Valgrind",
       "inherits": "ci-ubuntu-debug",
       "targets": [
-        "ExperimentalMemCheck"
+        "MemCheck"
       ]
     },
     {
       "name": "ci-ubuntu-release-valgrind",
-      "description": "Build target 'ExperimentalMemCheck' which runs the tests with Valgrind",
+      "description": "Build target 'MemCheck' which runs the tests with Valgrind",
       "inherits": "ci-ubuntu-release",
       "targets": [
-        "ExperimentalMemCheck"
+        "MemCheck"
       ]
     },
     {

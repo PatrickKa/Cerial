@@ -10,3 +10,4 @@ add_test(
     NAME CerialGenerateHelpers
     COMMAND "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_SOURCE_DIR}/CerialGenerateHelpers.test.cmake"
 )
+set_tests_properties(CerialGenerateHelpers PROPERTIES LABELS "NoMemCheck")

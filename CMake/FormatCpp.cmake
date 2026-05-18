@@ -10,6 +10,7 @@ file(
     "${project_root_dir}/Cerial/*.[chi]pp"
     "${project_root_dir}/Tests/*.[chi]pp"
 )
+list(FILTER files EXCLUDE REGEX "/Tests/Data/ExpectedOutput/")
 
 if(FIX)
     format_cpp_code(${files})

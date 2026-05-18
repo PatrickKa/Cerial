@@ -10,6 +10,7 @@
 #include <cstring>
 #include <span>
 #include <type_traits>
+#include <utility>
 
 
 namespace cerial

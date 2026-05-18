@@ -47,6 +47,8 @@ jobs:
 
   build-and-test:
     needs: format-and-spell-check
+    permissions:
+      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
@@ -194,6 +196,8 @@ jobs:
 
   report-warnings:
     needs: build-and-test
+    permissions:
+      pull-requests: write
     runs-on: ubuntu-24.04
     steps:
       - name: Download all build log artifacts

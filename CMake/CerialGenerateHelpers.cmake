@@ -56,8 +56,8 @@ endfunction()
 
 # cerial_generate_code(<structs_var> <source_include> <out_var>)
 #
-# Takes the variable name prefix from cerial_get_structs and generates C++ serialization code.
-# Generates SerialSize, Serialize, and Deserialize for each struct, grouped by struct.
+# Takes the variable name prefix from cerial_get_structs() and generates C++ serialization code.
+# Generates SerialSize(), SerializeTo(), and DeserializeFrom() for each struct, grouped by struct.
 # <source_include> is the include path for the header containing the struct definitions. Sets
 # <out_var> to the generated code string.
 function(cerial_generate_code structs_var source_include out_var)
@@ -362,15 +362,15 @@ function(_cerial_generate_serialize bare_name members out_var)
     set(code "template<std::endian endianness>\n")
     string(
         APPEND code
-        "auto Serialize(${bare_name} const & value, std::span<cerial::Byte> destination)\n"
+        "auto SerializeTo(std::span<cerial::Byte> destination, ${bare_name} const & value)\n"
     )
     string(APPEND code "    -> std::span<cerial::Byte>\n")
     string(APPEND code "{\n")
-    string(APPEND code "    using cerial::Serialize;\n")
+    string(APPEND code "    using cerial::SerializeTo;\n")
     foreach(member IN LISTS members)
         string(
             APPEND code
-            "    destination = Serialize<endianness>(value.${member}, destination);\n"
+            "    destination = SerializeTo<endianness>(destination, value.${member});\n"
         )
     endforeach()
     string(APPEND code "    return destination;\n")
@@ -382,13 +382,13 @@ function(_cerial_generate_deserialize bare_name members out_var)
     set(code "template<std::endian endianness>\n")
     string(
         APPEND code
-        "auto Deserialize(${bare_name} * value, std::span<cerial::Byte const> source)\n"
+        "auto DeserializeFrom(std::span<cerial::Byte const> source, ${bare_name} * value)\n"
     )
     string(APPEND code "    -> std::span<cerial::Byte const>\n")
     string(APPEND code "{\n")
-    string(APPEND code "    using cerial::Deserialize;\n")
+    string(APPEND code "    using cerial::DeserializeFrom;\n")
     foreach(member IN LISTS members)
-        string(APPEND code "    source = Deserialize<endianness>(&value->${member}, source);\n")
+        string(APPEND code "    source = DeserializeFrom<endianness>(source, &value->${member});\n")
     endforeach()
     string(APPEND code "    return source;\n")
     string(APPEND code "}\n")

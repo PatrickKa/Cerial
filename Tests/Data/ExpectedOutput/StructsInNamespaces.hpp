@@ -18,21 +18,21 @@ constexpr auto cerial::SerialSize<GlobalStruct>() -> std::size_t
 
 
 template<std::endian endianness>
-auto Serialize(GlobalStruct const & value, std::span<cerial::Byte> destination)
+auto SerializeTo(std::span<cerial::Byte> destination, GlobalStruct const & value)
     -> std::span<cerial::Byte>
 {
-    using cerial::Serialize;
-    destination = Serialize<endianness>(value.b, destination);
+    using cerial::SerializeTo;
+    destination = SerializeTo<endianness>(destination, value.b);
     return destination;
 }
 
 
 template<std::endian endianness>
-auto Deserialize(GlobalStruct * value, std::span<cerial::Byte const> source)
+auto DeserializeFrom(std::span<cerial::Byte const> source, GlobalStruct * value)
     -> std::span<cerial::Byte const>
 {
-    using cerial::Deserialize;
-    source = Deserialize<endianness>(&value->b, source);
+    using cerial::DeserializeFrom;
+    source = DeserializeFrom<endianness>(source, &value->b);
     return source;
 }
 
@@ -47,21 +47,21 @@ constexpr auto cerial::SerialSize<n::NamespacedStruct>() -> std::size_t
 namespace n
 {
 template<std::endian endianness>
-auto Serialize(NamespacedStruct const & value, std::span<cerial::Byte> destination)
+auto SerializeTo(std::span<cerial::Byte> destination, NamespacedStruct const & value)
     -> std::span<cerial::Byte>
 {
-    using cerial::Serialize;
-    destination = Serialize<endianness>(value.l, destination);
+    using cerial::SerializeTo;
+    destination = SerializeTo<endianness>(destination, value.l);
     return destination;
 }
 
 
 template<std::endian endianness>
-auto Deserialize(NamespacedStruct * value, std::span<cerial::Byte const> source)
+auto DeserializeFrom(std::span<cerial::Byte const> source, NamespacedStruct * value)
     -> std::span<cerial::Byte const>
 {
-    using cerial::Deserialize;
-    source = Deserialize<endianness>(&value->l, source);
+    using cerial::DeserializeFrom;
+    source = DeserializeFrom<endianness>(source, &value->l);
     return source;
 }
 }
@@ -79,25 +79,25 @@ constexpr auto cerial::SerialSize<n::m::NestedNamespaceStruct>() -> std::size_t
 namespace n::m
 {
 template<std::endian endianness>
-auto Serialize(NestedNamespaceStruct const & value, std::span<cerial::Byte> destination)
+auto SerializeTo(std::span<cerial::Byte> destination, NestedNamespaceStruct const & value)
     -> std::span<cerial::Byte>
 {
-    using cerial::Serialize;
-    destination = Serialize<endianness>(value.c, destination);
-    destination = Serialize<endianness>(value.i, destination);
-    destination = Serialize<endianness>(value.f, destination);
+    using cerial::SerializeTo;
+    destination = SerializeTo<endianness>(destination, value.c);
+    destination = SerializeTo<endianness>(destination, value.i);
+    destination = SerializeTo<endianness>(destination, value.f);
     return destination;
 }
 
 
 template<std::endian endianness>
-auto Deserialize(NestedNamespaceStruct * value, std::span<cerial::Byte const> source)
+auto DeserializeFrom(std::span<cerial::Byte const> source, NestedNamespaceStruct * value)
     -> std::span<cerial::Byte const>
 {
-    using cerial::Deserialize;
-    source = Deserialize<endianness>(&value->c, source);
-    source = Deserialize<endianness>(&value->i, source);
-    source = Deserialize<endianness>(&value->f, source);
+    using cerial::DeserializeFrom;
+    source = DeserializeFrom<endianness>(source, &value->c);
+    source = DeserializeFrom<endianness>(source, &value->i);
+    source = DeserializeFrom<endianness>(source, &value->f);
     return source;
 }
 }
@@ -113,21 +113,21 @@ constexpr auto cerial::SerialSize<n::a::b::InlineNamespaceStruct>() -> std::size
 namespace n::a::b
 {
 template<std::endian endianness>
-auto Serialize(InlineNamespaceStruct const & value, std::span<cerial::Byte> destination)
+auto SerializeTo(std::span<cerial::Byte> destination, InlineNamespaceStruct const & value)
     -> std::span<cerial::Byte>
 {
-    using cerial::Serialize;
-    destination = Serialize<endianness>(value.s, destination);
+    using cerial::SerializeTo;
+    destination = SerializeTo<endianness>(destination, value.s);
     return destination;
 }
 
 
 template<std::endian endianness>
-auto Deserialize(InlineNamespaceStruct * value, std::span<cerial::Byte const> source)
+auto DeserializeFrom(std::span<cerial::Byte const> source, InlineNamespaceStruct * value)
     -> std::span<cerial::Byte const>
 {
-    using cerial::Deserialize;
-    source = Deserialize<endianness>(&value->s, source);
+    using cerial::DeserializeFrom;
+    source = DeserializeFrom<endianness>(source, &value->s);
     return source;
 }
 }
@@ -141,20 +141,20 @@ constexpr auto cerial::SerialSize<AnonymousNamespaceStruct>() -> std::size_t
 
 
 template<std::endian endianness>
-auto Serialize(AnonymousNamespaceStruct const & value, std::span<cerial::Byte> destination)
+auto SerializeTo(std::span<cerial::Byte> destination, AnonymousNamespaceStruct const & value)
     -> std::span<cerial::Byte>
 {
-    using cerial::Serialize;
-    destination = Serialize<endianness>(value.d, destination);
+    using cerial::SerializeTo;
+    destination = SerializeTo<endianness>(destination, value.d);
     return destination;
 }
 
 
 template<std::endian endianness>
-auto Deserialize(AnonymousNamespaceStruct * value, std::span<cerial::Byte const> source)
+auto DeserializeFrom(std::span<cerial::Byte const> source, AnonymousNamespaceStruct * value)
     -> std::span<cerial::Byte const>
 {
-    using cerial::Deserialize;
-    source = Deserialize<endianness>(&value->d, source);
+    using cerial::DeserializeFrom;
+    source = DeserializeFrom<endianness>(source, &value->d);
     return source;
 }

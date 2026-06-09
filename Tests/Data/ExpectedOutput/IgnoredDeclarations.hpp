@@ -18,20 +18,20 @@ constexpr auto cerial::SerialSize<ParentStruct>() -> std::size_t
 
 
 template<std::endian endianness>
-auto Serialize(ParentStruct const & value, std::span<cerial::Byte> destination)
+auto SerializeTo(std::span<cerial::Byte> destination, ParentStruct const & value)
     -> std::span<cerial::Byte>
 {
-    using cerial::Serialize;
-    destination = Serialize<endianness>(value.j, destination);
+    using cerial::SerializeTo;
+    destination = SerializeTo<endianness>(destination, value.j);
     return destination;
 }
 
 
 template<std::endian endianness>
-auto Deserialize(ParentStruct * value, std::span<cerial::Byte const> source)
+auto DeserializeFrom(std::span<cerial::Byte const> source, ParentStruct & value)
     -> std::span<cerial::Byte const>
 {
-    using cerial::Deserialize;
-    source = Deserialize<endianness>(&value->j, source);
+    using cerial::DeserializeFrom;
+    source = DeserializeFrom<endianness>(source, value.j);
     return source;
 }

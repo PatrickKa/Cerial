@@ -5,8 +5,8 @@
 #     [INCLUDE_DIR <directory>]
 # )
 #
-# Generates SerialSize(), Serialize(), and Deserialize() for all structs annotated with "// @Cerial"
-# in the given header files. The generated files are named <stem>.cerial.hpp and placed in
+# Generates SerialSize(), SerializeTo(), and DeserializeFrom() for all structs in the given header
+# files annotated with "// @Cerial". The generated files are named <stem>.cerial.hpp and placed in
 # OUTPUT_DIR. INCLUDE_DIR is added to the target's include directories.
 #
 # Defaults: OUTPUT_DIR = CMAKE_CURRENT_BINARY_DIR, INCLUDE_DIR = CMAKE_BINARY_DIR

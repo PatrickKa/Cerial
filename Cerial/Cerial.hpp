@@ -62,17 +62,17 @@ template<std::endian endianness, std::default_initializable T>
 
 // Must be overloaded for user-defined types to be serializable
 template<std::endian endianness, TriviallySerializable T>
-auto Serialize(T t, std::span<Byte> destination) -> std::span<Byte>;
+auto SerializeTo(std::span<Byte> destination, T t) -> std::span<Byte>;
 
 // Must be overloaded for user-defined types to be deserializable
 template<std::endian endianness, TriviallySerializable T>
-auto Deserialize(T * t, std::span<Byte const> source) -> std::span<Byte const>;
+auto DeserializeFrom(std::span<Byte const> source, T & t) -> std::span<Byte const>;
 
 template<std::endian endianness, StdArray T>
-auto Serialize(T const & array, std::span<Byte> destination) -> std::span<Byte>;
+auto SerializeTo(std::span<Byte> destination, T const & array) -> std::span<Byte>;
 
 template<std::endian endianness, StdArray T>
-auto Deserialize(T * array, std::span<Byte const> source) -> std::span<Byte const>;
+auto DeserializeFrom(std::span<Byte const> source, T & array) -> std::span<Byte const>;
 
 
 template<ByteOrderSensitive T>
@@ -99,7 +99,7 @@ template<std::endian endianness, typename T>
 [[nodiscard]] auto Serialize(T const & t) -> Buffer<T>
 {
     auto buffer = Buffer<T>{};
-    Serialize<endianness>(t, std::span(buffer));
+    SerializeTo<endianness>(std::span(buffer), t);
     return buffer;
 }
 
@@ -108,13 +108,13 @@ template<std::endian endianness, std::default_initializable T>
 [[nodiscard]] auto Deserialize(BufferView<T> bufferView) -> T
 {
     auto t = T{};
-    Deserialize<endianness>(&t, bufferView);
+    DeserializeFrom<endianness>(bufferView, t);
     return t;
 }
 
 
 template<std::endian endianness, TriviallySerializable T>
-auto Serialize(T t, std::span<Byte> destination) -> std::span<Byte>
+auto SerializeTo(std::span<Byte> destination, T t) -> std::span<Byte>
 {
     if constexpr(ByteOrderSensitive<T> && endianness != std::endian::native)
     {
@@ -126,34 +126,34 @@ auto Serialize(T t, std::span<Byte> destination) -> std::span<Byte>
 
 
 template<std::endian endianness, TriviallySerializable T>
-auto Deserialize(T * t, std::span<Byte const> source) -> std::span<Byte const>
+auto DeserializeFrom(std::span<Byte const> source, T & t) -> std::span<Byte const>
 {
-    std::memcpy(t, source.data(), SerialSize<T>());
+    std::memcpy(&t, source.data(), SerialSize<T>());
     if constexpr(ByteOrderSensitive<T> && endianness != std::endian::native)
     {
-        *t = ReverseBytes(*t);
+        t = ReverseBytes(t);
     }
     return source.subspan(SerialSize<T>());
 }
 
 
 template<std::endian endianness, StdArray T>
-auto Serialize(T const & array, std::span<Byte> destination) -> std::span<Byte>
+auto SerializeTo(std::span<Byte> destination, T const & array) -> std::span<Byte>
 {
     for(auto && element : array)
     {
-        destination = Serialize<endianness>(element, destination);
+        destination = SerializeTo<endianness>(destination, element);
     }
     return destination;
 }
 
 
 template<std::endian endianness, StdArray T>
-auto Deserialize(T * array, std::span<Byte const> source) -> std::span<Byte const>
+auto DeserializeFrom(std::span<Byte const> source, T & array) -> std::span<Byte const>
 {
-    for(auto && element : *array)
+    for(auto && element : array)
     {
-        source = Deserialize<endianness>(&element, source);
+        source = DeserializeFrom<endianness>(source, element);
     }
     return source;
 }

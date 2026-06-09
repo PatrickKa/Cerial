@@ -218,21 +218,21 @@ struct Point
 
 
 template<std::endian endianness>
-auto Serialize(Point const & point, std::span<Byte> destination) -> std::span<Byte>
+auto SerializeTo(std::span<Byte> destination, Point const & point) -> std::span<Byte>
 {
-    using cerial::Serialize;
-    destination = Serialize<endianness>(point.x, destination);
-    destination = Serialize<endianness>(point.y, destination);
+    using cerial::SerializeTo;
+    destination = SerializeTo<endianness>(destination, point.x);
+    destination = SerializeTo<endianness>(destination, point.y);
     return destination;
 }
 
 
 template<std::endian endianness>
-auto Deserialize(Point * point, std::span<Byte const> source) -> std::span<Byte const>
+auto DeserializeFrom(std::span<Byte const> source, Point & point) -> std::span<Byte const>
 {
-    using cerial::Deserialize;
-    source = Deserialize<endianness>(&point->x, source);
-    source = Deserialize<endianness>(&point->y, source);
+    using cerial::DeserializeFrom;
+    source = DeserializeFrom<endianness>(source, point.x);
+    source = DeserializeFrom<endianness>(source, point.y);
     return source;
 }
 }

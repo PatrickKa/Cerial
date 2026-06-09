@@ -12,6 +12,9 @@ struct ParentStruct
         int i;
     };
 
+    static int staticMember;
+    static constexpr int staticConstexprMember = 0;
+
     int j;
 
     [[nodiscard]] auto GetJ() const -> int

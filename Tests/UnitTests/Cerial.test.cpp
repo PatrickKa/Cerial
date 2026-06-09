@@ -228,11 +228,11 @@ auto SerializeTo(std::span<Byte> destination, Point const & point) -> std::span<
 
 
 template<std::endian endianness>
-auto DeserializeFrom(std::span<Byte const> source, Point * point) -> std::span<Byte const>
+auto DeserializeFrom(std::span<Byte const> source, Point & point) -> std::span<Byte const>
 {
     using cerial::DeserializeFrom;
-    source = DeserializeFrom<endianness>(source, &point->x);
-    source = DeserializeFrom<endianness>(source, &point->y);
+    source = DeserializeFrom<endianness>(source, point.x);
+    source = DeserializeFrom<endianness>(source, point.y);
     return source;
 }
 }

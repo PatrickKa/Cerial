@@ -28,10 +28,10 @@ auto SerializeTo(std::span<cerial::Byte> destination, ParentStruct const & value
 
 
 template<std::endian endianness>
-auto DeserializeFrom(std::span<cerial::Byte const> source, ParentStruct * value)
+auto DeserializeFrom(std::span<cerial::Byte const> source, ParentStruct & value)
     -> std::span<cerial::Byte const>
 {
     using cerial::DeserializeFrom;
-    source = DeserializeFrom<endianness>(source, &value->j);
+    source = DeserializeFrom<endianness>(source, value.j);
     return source;
 }

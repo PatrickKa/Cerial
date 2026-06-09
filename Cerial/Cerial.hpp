@@ -66,13 +66,13 @@ auto SerializeTo(std::span<Byte> destination, T t) -> std::span<Byte>;
 
 // Must be overloaded for user-defined types to be deserializable
 template<std::endian endianness, TriviallySerializable T>
-auto DeserializeFrom(std::span<Byte const> source, T * t) -> std::span<Byte const>;
+auto DeserializeFrom(std::span<Byte const> source, T & t) -> std::span<Byte const>;
 
 template<std::endian endianness, StdArray T>
 auto SerializeTo(std::span<Byte> destination, T const & array) -> std::span<Byte>;
 
 template<std::endian endianness, StdArray T>
-auto DeserializeFrom(std::span<Byte const> source, T * array) -> std::span<Byte const>;
+auto DeserializeFrom(std::span<Byte const> source, T & array) -> std::span<Byte const>;
 
 
 template<ByteOrderSensitive T>
@@ -108,7 +108,7 @@ template<std::endian endianness, std::default_initializable T>
 [[nodiscard]] auto Deserialize(BufferView<T> bufferView) -> T
 {
     auto t = T{};
-    DeserializeFrom<endianness>(bufferView, &t);
+    DeserializeFrom<endianness>(bufferView, t);
     return t;
 }
 
@@ -126,12 +126,12 @@ auto SerializeTo(std::span<Byte> destination, T t) -> std::span<Byte>
 
 
 template<std::endian endianness, TriviallySerializable T>
-auto DeserializeFrom(std::span<Byte const> source, T * t) -> std::span<Byte const>
+auto DeserializeFrom(std::span<Byte const> source, T & t) -> std::span<Byte const>
 {
-    std::memcpy(t, source.data(), SerialSize<T>());
+    std::memcpy(&t, source.data(), SerialSize<T>());
     if constexpr(ByteOrderSensitive<T> && endianness != std::endian::native)
     {
-        *t = ReverseBytes(*t);
+        t = ReverseBytes(t);
     }
     return source.subspan(SerialSize<T>());
 }
@@ -149,11 +149,11 @@ auto SerializeTo(std::span<Byte> destination, T const & array) -> std::span<Byte
 
 
 template<std::endian endianness, StdArray T>
-auto DeserializeFrom(std::span<Byte const> source, T * array) -> std::span<Byte const>
+auto DeserializeFrom(std::span<Byte const> source, T & array) -> std::span<Byte const>
 {
-    for(auto && element : *array)
+    for(auto && element : array)
     {
-        source = DeserializeFrom<endianness>(source, &element);
+        source = DeserializeFrom<endianness>(source, element);
     }
     return source;
 }

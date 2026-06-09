@@ -382,13 +382,13 @@ function(_cerial_generate_deserialize bare_name members out_var)
     set(code "template<std::endian endianness>\n")
     string(
         APPEND code
-        "auto DeserializeFrom(std::span<cerial::Byte const> source, ${bare_name} * value)\n"
+        "auto DeserializeFrom(std::span<cerial::Byte const> source, ${bare_name} & value)\n"
     )
     string(APPEND code "    -> std::span<cerial::Byte const>\n")
     string(APPEND code "{\n")
     string(APPEND code "    using cerial::DeserializeFrom;\n")
     foreach(member IN LISTS members)
-        string(APPEND code "    source = DeserializeFrom<endianness>(source, &value->${member});\n")
+        string(APPEND code "    source = DeserializeFrom<endianness>(source, value.${member});\n")
     endforeach()
     string(APPEND code "    return source;\n")
     string(APPEND code "}\n")

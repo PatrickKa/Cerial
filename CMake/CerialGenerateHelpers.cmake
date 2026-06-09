@@ -34,7 +34,8 @@ endfunction()
 # other structs are excluded.
 #
 # For each struct at index <i> in the returned list, also sets <out_var>_members_<i> to contain the
-# list of member variable names in declaration order
+# list of member variable names in declaration order. Static members are excluded, since they are
+# not per-instance data.
 function(cerial_get_structs source_file out_var)
     _cerial_read_file("${source_file}" content)
     _cerial_strip_literals("${content}" content)
@@ -426,6 +427,10 @@ function(_cerial_parse_member_names text out_var)
     foreach(declaration IN LISTS text)
         string(STRIP "${declaration}" declaration)
         if(declaration STREQUAL "")
+            continue()
+        endif()
+        # Skip static members. We only care about per-instance data.
+        if(declaration MATCHES "^static[ \t\n]")
             continue()
         endif()
         # Strip default value initializers (e.g. "int x = 5" -> "int x"). The character classes

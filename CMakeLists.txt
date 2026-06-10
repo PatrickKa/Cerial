@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
-
 include(CMake/InSourceBuildGuard.cmake)
 include(CMake/MetadataFromVcpkg.cmake)
 
@@ -15,7 +13,7 @@ project(
 
 include(CMake/LanguageStandard.cmake)
 include(CMake/OptionsAndVariables.cmake)
-include(AddAndSetUpTargets)
+include(CMake/AddAndSetUpTargets.cmake)
 
 # --- Find dependencies ---
 

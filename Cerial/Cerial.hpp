@@ -55,6 +55,14 @@ constexpr auto SerialSize() -> std::size_t;
 template<StdArray T>
 constexpr auto SerialSize() -> std::size_t;
 
+// Runtime counterpart to SerialSize<T>(): forwards to it for statically sized types, and sums the
+// element sizes for dynamically sized ranges.
+template<typename T>
+constexpr auto SerialSize(T const & value) -> std::size_t;
+
+template<DynamicContiguousRange T>
+constexpr auto SerialSize(T const & range) -> std::size_t;
+
 
 template<typename T>
 using Buffer = std::array<Byte, SerialSize<T>()>;
@@ -108,6 +116,33 @@ template<StdArray T>
 constexpr auto SerialSize() -> std::size_t
 {
     return SerialSize<typename T::value_type>() * std::tuple_size_v<T>;
+}
+
+
+template<typename T>
+constexpr auto SerialSize(T const & /*value*/) -> std::size_t
+{
+    return SerialSize<T>();
+}
+
+
+template<DynamicContiguousRange T>
+constexpr auto SerialSize(T const & range) -> std::size_t
+{
+    using Element = std::remove_cvref_t<decltype(*range.data())>;
+    if constexpr(DynamicContiguousRange<Element>)
+    {
+        auto sum = 0UZ;
+        for(auto && element : range)
+        {
+            sum += SerialSize(element);
+        }
+        return sum;
+    }
+    else
+    {
+        return range.size() * SerialSize<Element>();
+    }
 }
 
 
@@ -246,4 +281,8 @@ static_assert(SerialSize<unsigned long long>() == sizeof(unsigned long long));
 
 static_assert(SerialSize<std::array<char, 2>>() == 2);
 static_assert(SerialSize<std::array<std::array<float, 2>, 3>>() == 4 * 3 * 2);
+
+// The runtime SerialSize() is usable in a constant expression for statically sized types
+static_assert(SerialSize(1) == sizeof(int));
+static_assert(SerialSize(std::array<char, 2>{}) == 2);
 }

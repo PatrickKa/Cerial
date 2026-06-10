@@ -74,6 +74,31 @@ TEST_CASE("DynamicContiguousRange")
 }
 
 
+TEST_CASE("Runtime SerialSize()")
+{
+    using cerial::SerialSize;
+
+    // Statically sized values forward to the compile-time SerialSize<T>()
+    CHECK(SerialSize(1) == sizeof(int));
+    CHECK(SerialSize(std::array<char, 3>{}) == 3);
+
+    // Dynamically sized ranges depend on the runtime element count
+    CHECK(SerialSize(etl::vector<int, 4>(2)) == 2 * sizeof(int));
+    CHECK(SerialSize(std::vector<int>(5)) == 5 * sizeof(int));
+
+    // Nested ranges sum their elements' sizes recursively
+    auto arrays = etl::vector<std::array<int, 2>, 4>(3);
+    CHECK(SerialSize(arrays) == 3 * 2 * sizeof(int));
+    auto strings = std::vector<std::string>{"a", "bcd"};
+    CHECK(SerialSize(strings) == 1 + 3);
+
+    // A std::array of dynamically sized elements has no SerialSize() because std::array forwards to
+    // the compile-time SerialSize<T>(), which needs a compile-time SerialSize<value_type>() that a
+    // dynamic range cannot provide. SerializeTo()/DeserializeFrom() still work on such arrays, as
+    // they loop instead of relying on a compile-time size.
+}
+
+
 TEST_CASE("Serialize TriviallySerializable types")
 {
     SECTION("Little endian")
@@ -232,6 +257,7 @@ TEST_CASE("Serialize etl::vector")
 {
     auto vector = etl::vector<std::uint16_t, 4>{0x0102, 0x0304};
     auto buffer = std::array<Byte, 2 * sizeof(std::uint16_t)>{};
+    CHECK(cerial::SerialSize(vector) == buffer.size());
 
     SECTION("Little endian")
     {
@@ -289,6 +315,7 @@ TEST_CASE("Serialize etl::vector of std::array")
         Element{0x0506, 0x0708}
     };
     auto buffer = std::array<Byte, 4 * sizeof(std::uint16_t)>{};
+    CHECK(cerial::SerialSize(vector) == buffer.size());
 
     SECTION("Little endian")
     {

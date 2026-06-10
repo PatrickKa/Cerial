@@ -3,13 +3,18 @@
 #include <Cerial/Byte.hpp>
 
 #include <catch2/catch_test_macros.hpp>
+#include <etl/array.h>
+#include <etl/string.h>
+#include <etl/vector.h>
 
 #include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <type_traits>
+#include <vector>
 
 
 using cerial::Byte;
@@ -49,6 +54,23 @@ TEST_CASE("TriviallySerializable and ByteOrderSensitive")
     STATIC_CHECK(ByteOrderSensitive<ScopedEnum>);
     STATIC_CHECK(ByteOrderSensitive<EmptyStruct> == false);
     STATIC_CHECK(ByteOrderSensitive<SingleInt32> == false);
+}
+
+
+// These compile-time checks are not in Cerial.hpp to prevent depending on unnecessary standard
+// library headers or external libraries
+TEST_CASE("DynamicContiguousRange")
+{
+    using cerial::DynamicContiguousRange;
+
+    STATIC_CHECK(DynamicContiguousRange<std::vector<int>>);
+    STATIC_CHECK(DynamicContiguousRange<std::string>);
+    STATIC_CHECK(DynamicContiguousRange<etl::vector<int, 3>>);
+    STATIC_CHECK(DynamicContiguousRange<etl::string<3>>);
+
+    STATIC_CHECK(!DynamicContiguousRange<int[3]>);
+    STATIC_CHECK(!DynamicContiguousRange<std::array<int, 3>>);
+    STATIC_CHECK(!DynamicContiguousRange<etl::array<int, 3>>);
 }
 
 
@@ -202,6 +224,129 @@ TEST_CASE("Deserialize std::array")
         auto array = Deserialize<std::endian::big, std::array<std::uint16_t, 2>>(buffer);
         CHECK(array[0] == 0x0102);
         CHECK(array[1] == 0x0304);
+    }
+}
+
+
+TEST_CASE("Serialize etl::vector")
+{
+    auto vector = etl::vector<std::uint16_t, 4>{0x0102, 0x0304};
+    auto buffer = std::array<Byte, 2 * sizeof(std::uint16_t)>{};
+
+    SECTION("Little endian")
+    {
+        auto remaining = cerial::SerializeTo<std::endian::little>(buffer, vector);
+        CHECK(remaining.empty());
+        CHECK(int(buffer[0]) == 0x02);
+        CHECK(int(buffer[1]) == 0x01);
+        CHECK(int(buffer[2]) == 0x04);
+        CHECK(int(buffer[3]) == 0x03);
+    }
+
+    SECTION("Big endian")
+    {
+        auto remaining = cerial::SerializeTo<std::endian::big>(buffer, vector);
+        CHECK(remaining.empty());
+        CHECK(int(buffer[0]) == 0x01);
+        CHECK(int(buffer[1]) == 0x02);
+        CHECK(int(buffer[2]) == 0x03);
+        CHECK(int(buffer[3]) == 0x04);
+    }
+}
+
+
+TEST_CASE("Deserialize etl::vector")
+{
+    auto buffer = std::array{0x01_b, 0x02_b, 0x03_b, 0x04_b};
+
+    SECTION("Little endian")
+    {
+        auto vector = etl::vector<std::uint16_t, 4>(2);  // Pre-sized to the expected element count
+        auto remaining = cerial::DeserializeFrom<std::endian::little>(buffer, vector);
+        CHECK(remaining.empty());
+        REQUIRE(vector.size() == 2);
+        CHECK(vector[0] == 0x0201);
+        CHECK(vector[1] == 0x0403);
+    }
+
+    SECTION("Big endian")
+    {
+        auto vector = etl::vector<std::uint16_t, 4>(2);  // Pre-sized to the expected element count
+        auto remaining = cerial::DeserializeFrom<std::endian::big>(buffer, vector);
+        CHECK(remaining.empty());
+        REQUIRE(vector.size() == 2);
+        CHECK(vector[0] == 0x0102);
+        CHECK(vector[1] == 0x0304);
+    }
+}
+
+
+TEST_CASE("Serialize etl::vector of std::array")
+{
+    using Element = std::array<std::uint16_t, 2>;
+    auto vector = etl::vector<Element, 4>{
+        Element{0x0102, 0x0304},
+        Element{0x0506, 0x0708}
+    };
+    auto buffer = std::array<Byte, 4 * sizeof(std::uint16_t)>{};
+
+    SECTION("Little endian")
+    {
+        auto remaining = cerial::SerializeTo<std::endian::little>(buffer, vector);
+        CHECK(remaining.empty());
+        CHECK(int(buffer[0]) == 0x02);
+        CHECK(int(buffer[1]) == 0x01);
+        CHECK(int(buffer[2]) == 0x04);
+        CHECK(int(buffer[3]) == 0x03);
+        CHECK(int(buffer[4]) == 0x06);
+        CHECK(int(buffer[5]) == 0x05);
+        CHECK(int(buffer[6]) == 0x08);
+        CHECK(int(buffer[7]) == 0x07);
+    }
+
+    SECTION("Big endian")
+    {
+        auto remaining = cerial::SerializeTo<std::endian::big>(buffer, vector);
+        CHECK(remaining.empty());
+        CHECK(int(buffer[0]) == 0x01);
+        CHECK(int(buffer[1]) == 0x02);
+        CHECK(int(buffer[2]) == 0x03);
+        CHECK(int(buffer[3]) == 0x04);
+        CHECK(int(buffer[4]) == 0x05);
+        CHECK(int(buffer[5]) == 0x06);
+        CHECK(int(buffer[6]) == 0x07);
+        CHECK(int(buffer[7]) == 0x08);
+    }
+}
+
+
+TEST_CASE("Deserialize etl::vector of std::array")
+{
+    using Element = std::array<std::uint16_t, 2>;
+    auto buffer = std::array{0x01_b, 0x02_b, 0x03_b, 0x04_b, 0x05_b, 0x06_b, 0x07_b, 0x08_b};
+
+    SECTION("Little endian")
+    {
+        auto vector = etl::vector<Element, 4>(2);  // Pre-sized to the expected element count
+        auto remaining = cerial::DeserializeFrom<std::endian::little>(buffer, vector);
+        CHECK(remaining.empty());
+        REQUIRE(vector.size() == 2);
+        CHECK(vector[0][0] == 0x0201);
+        CHECK(vector[0][1] == 0x0403);
+        CHECK(vector[1][0] == 0x0605);
+        CHECK(vector[1][1] == 0x0807);
+    }
+
+    SECTION("Big endian")
+    {
+        auto vector = etl::vector<Element, 4>(2);  // Pre-sized to the expected element count
+        auto remaining = cerial::DeserializeFrom<std::endian::big>(buffer, vector);
+        CHECK(remaining.empty());
+        REQUIRE(vector.size() == 2);
+        CHECK(vector[0][0] == 0x0102);
+        CHECK(vector[0][1] == 0x0304);
+        CHECK(vector[1][0] == 0x0506);
+        CHECK(vector[1][1] == 0x0708);
     }
 }
 

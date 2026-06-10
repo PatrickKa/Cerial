@@ -64,12 +64,12 @@ jobs:
           - compiler: MSVC
             preset: ci-windows-msvc
             compiler-pascal-case: Msvc
-            os: windows-2025
+            os: windows-2025-vs2026
           - compiler: clang-cl
             compiler-setup-cpp: llvm-${{ needs.format-and-spell-check.outputs.LLVM_MAJOR_VERSION }}
             preset: ci-windows-clang-cl
             compiler-pascal-case: ClangCl
-            os: windows-2025
+            os: windows-2025-vs2026
           - compiler: GCC
             compiler-setup-cpp: gcc-14
             preset: "ci-ubuntu"

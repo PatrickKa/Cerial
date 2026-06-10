@@ -167,7 +167,7 @@
         "common-windows",
         "flags-msvc"
       ],
-      "generator": "Visual Studio 17 2022",
+      "generator": "Visual Studio 18 2026",
       "architecture": "x64",
       "cacheVariables": {
         "VCPKG_HOST_TRIPLET": "x64-windows-static-md",

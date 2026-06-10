@@ -32,6 +32,15 @@ inline constexpr auto isStdArray<std::array<T, size>> = true;
 template<typename T>
 concept StdArray = isStdArray<T>;
 
+template<typename T>
+concept DynamicContiguousRange = requires(T & t) {
+    { t.data() };
+    { t.size() } -> std::convertible_to<std::size_t>;
+    t.begin();
+    t.end();
+    t.clear();  // Simplest test I could come up with to check if a range has dynamic or static size
+};
+
 
 // --- Function declarations and type aliases ---
 
@@ -73,6 +82,13 @@ auto SerializeTo(std::span<Byte> destination, T const & array) -> std::span<Byte
 
 template<std::endian endianness, StdArray T>
 auto DeserializeFrom(std::span<Byte const> source, T & array) -> std::span<Byte const>;
+
+template<std::endian endianness, DynamicContiguousRange T>
+auto SerializeTo(std::span<Byte> destination, T const & range) -> std::span<Byte>;
+
+// Deserializes into the range's existing elements, so the caller must size the range beforehand
+template<std::endian endianness, DynamicContiguousRange T>
+auto DeserializeFrom(std::span<Byte const> source, T & range) -> std::span<Byte const>;
 
 
 template<ByteOrderSensitive T>
@@ -152,6 +168,28 @@ template<std::endian endianness, StdArray T>
 auto DeserializeFrom(std::span<Byte const> source, T & array) -> std::span<Byte const>
 {
     for(auto && element : array)
+    {
+        source = DeserializeFrom<endianness>(source, element);
+    }
+    return source;
+}
+
+
+template<std::endian endianness, DynamicContiguousRange T>
+auto SerializeTo(std::span<Byte> destination, T const & range) -> std::span<Byte>
+{
+    for(auto && element : range)
+    {
+        destination = SerializeTo<endianness>(destination, element);
+    }
+    return destination;
+}
+
+
+template<std::endian endianness, DynamicContiguousRange T>
+auto DeserializeFrom(std::span<Byte const> source, T & range) -> std::span<Byte const>
+{
+    for(auto && element : range)
     {
         source = DeserializeFrom<endianness>(source, element);
     }

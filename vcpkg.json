@@ -11,6 +11,10 @@
         {
           "name": "catch2",
           "version>=": "3.12.0"
+        },
+        {
+          "name": "etl",
+          "version>=": "20.45.0"
         }
       ]
     }

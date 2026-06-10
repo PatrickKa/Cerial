@@ -1,5 +1,5 @@
 add_and_set_up_test(CerialTests_Cerial)
-target_link_libraries(CerialTests_Cerial PRIVATE Cerial::Cerial Catch2::Catch2WithMain)
+target_link_libraries(CerialTests_Cerial PRIVATE Cerial::Cerial Catch2::Catch2WithMain etl::etl)
 catch_discover_tests(CerialTests_Cerial)
 
 add_and_set_up_test(CerialTests_Dummy)

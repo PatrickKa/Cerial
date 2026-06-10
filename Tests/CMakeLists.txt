@@ -1,4 +1,6 @@
 find_package(Catch2 CONFIG REQUIRED)
+find_package(etl CONFIG REQUIRED)
+
 include(Catch)
 
 add_subdirectory(UnitTests)

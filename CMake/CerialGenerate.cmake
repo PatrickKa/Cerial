@@ -70,8 +70,15 @@ set(cerial_include_dirs \"$<TARGET_PROPERTY:${ARG_TARGET},INCLUDE_DIRECTORIES>\"
     # CMakeLists.txt where cerial_generate() is called, which is not guaranteed.
     add_custom_target(${ARG_TARGET}_CerialGenerate DEPENDS ${generated_files})
     add_dependencies(${ARG_TARGET} ${ARG_TARGET}_CerialGenerate)
-    target_include_directories(${ARG_TARGET} PUBLIC "$<BUILD_INTERFACE:${ARG_INCLUDE_DIR}>")
-    target_link_libraries(${ARG_TARGET} PUBLIC Cerial::Cerial)
+
+    set(scope PUBLIC)
+    get_target_property(target_type ${ARG_TARGET} TYPE)
+    if(target_type STREQUAL "INTERFACE_LIBRARY")
+        set(scope INTERFACE)
+    endif()
+
+    target_include_directories(${ARG_TARGET} ${scope} "$<BUILD_INTERFACE:${ARG_INCLUDE_DIR}>")
+    target_link_libraries(${ARG_TARGET} ${scope} Cerial::Cerial)
 endfunction()
 
 # Must be set outside the function to resolve to this file's directory and not the caller's one

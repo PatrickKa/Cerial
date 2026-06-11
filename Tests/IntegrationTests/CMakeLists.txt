@@ -1,3 +1,5 @@
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../CMake")
+
 include(CerialGenerate)
 
 add_and_set_up_test(CerialTests_CerialGenerate)

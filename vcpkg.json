@@ -1,8 +1,9 @@
 {
   "name": "cerial",
-  "version-semver": "0.0.0",
+  "version-semver": "0.1.0",
   "description": "A C++ serialization library",
   "homepage": "https://github.com/PatrickKa/Cerial",
+  "license": "BSL-1.0",
   "dependencies": [],
   "features": {
     "test": {

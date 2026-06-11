@@ -20,7 +20,7 @@
 using cerial::Byte;
 using cerial::Deserialize;
 using cerial::Serialize;
-using cerial::operator""_b;
+using cerial::literals::operator""_b;
 
 
 // These compile-time checks are not in Cerial.hpp to prevent leaking the test enums and structs

@@ -49,7 +49,10 @@ function(cerial_generate)
                 "\
 set(cerial_source_file \"${header}\")
 set(cerial_output_file \"${output_file}\")
-set(cerial_include_dirs \"$<TARGET_PROPERTY:${ARG_TARGET},INCLUDE_DIRECTORIES>\")
+set(cerial_include_dirs
+    \"$<TARGET_PROPERTY:${ARG_TARGET},INCLUDE_DIRECTORIES>\"
+    \"$<TARGET_PROPERTY:${ARG_TARGET},INTERFACE_INCLUDE_DIRECTORIES>\"
+)
 "
         )
 

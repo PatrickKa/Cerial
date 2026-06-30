@@ -32,6 +32,17 @@ inline constexpr auto isStdArray<std::array<T, size>> = true;
 template<typename T>
 concept StdArray = isStdArray<T>;
 
+// Must be specialized for user-defined types, so the generated SerialSize() functions can choose
+// between the compile-time and runtime version
+template<typename T>
+inline constexpr auto isStaticallySized = TriviallySerializable<T>;
+
+template<typename T, std::size_t size>
+inline constexpr auto isStaticallySized<std::array<T, size>> = isStaticallySized<T>;
+
+template<typename T>
+concept StaticallySized = isStaticallySized<T>;
+
 template<typename T>
 concept DynamicContiguousRange = requires(T & t) {
     { t.data() };
@@ -44,8 +55,8 @@ concept DynamicContiguousRange = requires(T & t) {
 
 // --- Function declarations and type aliases ---
 
-// Must be specialized for user-defined types. The primary template is intentionally left undefined,
-// so that the compiler will throw an error if the specialization is missing.
+// Must be specialized or overloaded for user-defined types. The primary template is intentionally
+// left undefined, so that the compiler will throw an error if the specialization is missing.
 template<typename T>
 constexpr auto SerialSize() -> std::size_t;
 
@@ -130,7 +141,11 @@ template<DynamicContiguousRange T>
 constexpr auto SerialSize(T const & range) -> std::size_t
 {
     using Element = std::remove_cvref_t<decltype(*range.data())>;
-    if constexpr(DynamicContiguousRange<Element>)
+    if constexpr(StaticallySized<Element>)
+    {
+        return range.size() * SerialSize<Element>();
+    }
+    else  // Without this else branch MSVC emits warnings about unreachable code
     {
         auto sum = 0UZ;
         for(auto && element : range)
@@ -138,10 +153,6 @@ constexpr auto SerialSize(T const & range) -> std::size_t
             sum += SerialSize(element);
         }
         return sum;
-    }
-    else
-    {
-        return range.size() * SerialSize<Element>();
     }
 }
 
@@ -281,6 +292,11 @@ static_assert(SerialSize<unsigned long long>() == sizeof(unsigned long long));
 
 static_assert(SerialSize<std::array<char, 2>>() == 2);
 static_assert(SerialSize<std::array<std::array<float, 2>, 3>>() == 4 * 3 * 2);
+
+static_assert(StaticallySized<int>);
+static_assert(StaticallySized<std::array<int, 4>>);
+static_assert(StaticallySized<std::array<std::array<float, 2>, 3>>);
+static_assert(!StaticallySized<void *>);
 
 // The runtime SerialSize() is usable in a constant expression for statically sized types
 static_assert(SerialSize(1) == sizeof(int));

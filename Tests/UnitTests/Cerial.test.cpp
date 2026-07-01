@@ -9,11 +9,11 @@
 
 #include <array>
 #include <bit>
-#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -81,7 +81,7 @@ TEST_CASE("StaticallySized")
     STATIC_CHECK(!StaticallySized<std::array<std::vector<int>, 3>>);
     STATIC_CHECK(!StaticallySized<std::array<etl::vector<int, 3>, 2>>);
 
-    // A user-defined struct is not statically sized until the trait is specialized
+    // A non-reflected user-defined struct is not statically sized until the trait is specialized
     struct SingleInt
     {
         int i;
@@ -409,7 +409,9 @@ TEST_CASE("Deserialize etl::vector of std::array")
 }
 
 
-// Example for serializing and deserializing a statically sized user-defined type
+// Example for serializing and deserializing a statically sized user-defined type. Specializing
+// Reflection<T> is all that is required: the isStaticallySized trait, the compile-time and runtime
+// SerialSize(), and SerializeTo()/DeserializeFrom() are all derived from it.
 
 namespace
 {
@@ -418,40 +420,14 @@ struct Point
     std::int16_t x;
     std::int16_t y;
 };
-
-
-template<std::endian endianness>
-auto SerializeTo(std::span<Byte> destination, Point const & point) -> std::span<Byte>
-{
-    using cerial::SerializeTo;
-    destination = SerializeTo<endianness>(destination, point.x);
-    destination = SerializeTo<endianness>(destination, point.y);
-    return destination;
-}
-
-
-template<std::endian endianness>
-auto DeserializeFrom(std::span<Byte const> source, Point & point) -> std::span<Byte const>
-{
-    using cerial::DeserializeFrom;
-    source = DeserializeFrom<endianness>(source, point.x);
-    source = DeserializeFrom<endianness>(source, point.y);
-    return source;
-}
 }
 
 
 template<>
-inline constexpr auto cerial::isStaticallySized<Point> =
-    cerial::isStaticallySized<decltype(Point::x)>
-    && cerial::isStaticallySized<decltype(Point::y)>;  // NOLINT(*redundant-expression)
-
-
-template<>
-constexpr auto cerial::SerialSize<Point>() -> std::size_t  // NOLINT(*unneeded-internal-declaration)
+struct cerial::Reflection<Point>
 {
-    return SerialSize<decltype(Point::x)>() + SerialSize<decltype(Point::y)>();
-}
+    static constexpr auto members = std::tuple{&Point::x, &Point::y};
+};
 
 
 TEST_CASE("Serialize statically sized user-defined type")
@@ -500,7 +476,8 @@ TEST_CASE("Deserialize statically sized user-defined type")
 }
 
 
-// Example for serializing and deserializing a dynamically sized user-defined type
+// Example for serializing and deserializing a dynamically sized user-defined type. As above, only
+// the Reflection<T> specialization is needed.
 
 namespace
 {
@@ -509,58 +486,14 @@ struct Packet
     std::uint8_t id;
     etl::vector<std::int16_t, 4> payload;
 };
-
-
-template<std::endian endianness>
-auto SerializeTo(std::span<Byte> destination, Packet const & packet) -> std::span<Byte>
-{
-    using cerial::SerializeTo;
-    destination = SerializeTo<endianness>(destination, packet.id);
-    destination = SerializeTo<endianness>(destination, packet.payload);
-    return destination;
-}
-
-
-template<std::endian endianness>
-auto DeserializeFrom(std::span<Byte const> source, Packet & packet) -> std::span<Byte const>
-{
-    using cerial::DeserializeFrom;
-    source = DeserializeFrom<endianness>(source, packet.id);
-    source = DeserializeFrom<endianness>(source, packet.payload);
-    return source;
-}
 }
 
 
 template<>
-inline constexpr auto cerial::isStaticallySized<Packet> =
-    cerial::isStaticallySized<decltype(Packet::id)>
-    && cerial::isStaticallySized<decltype(Packet::payload)>;
-
-
-namespace cerial
+struct cerial::Reflection<Packet>
 {
-// This is what the code generator would emit for this function since it does not know if Packet is
-// statically sized. In the manual, hand-written case the user would of course know and not write
-// this overload at all.
-template<std::same_as<Packet> T>
-    requires StaticallySized<T>
-constexpr auto SerialSize() -> std::size_t  // NOLINT(*use-internal-linkage)
-{
-    return SerialSize<decltype(T::id)>() + SerialSize<decltype(T::payload)>();
-}
-
-
-// This is what the code generator would emit for this function since it does not know if Packet is
-// statically sized. In the manual, hand-written case the user would of course know and provide a
-// specialization instead of this overload.
-template<std::same_as<Packet> T>
-    requires(!StaticallySized<T>)
-constexpr auto SerialSize(T const & packet) -> std::size_t  // NOLINT(*use-internal-linkage)
-{
-    return SerialSize(packet.id) + SerialSize(packet.payload);
-}
-}
+    static constexpr auto members = std::tuple{&Packet::id, &Packet::payload};
+};
 
 
 TEST_CASE("Serialize a dynamically sized user-defined type")

@@ -125,11 +125,8 @@ TEST_CASE("Runtime SerialSize()")
     CHECK(SerialSize(arrays) == 3 * 2 * sizeof(int));
     auto strings = std::vector<std::string>{"a", "bcd"};
     CHECK(SerialSize(strings) == 1 + 3);
-
-    // A std::array of dynamically sized elements has no SerialSize() because std::array forwards to
-    // the compile-time SerialSize<T>(), which needs a compile-time SerialSize<value_type>() that a
-    // dynamic range cannot provide. SerializeTo()/DeserializeFrom() still work on such arrays, as
-    // they loop instead of relying on a compile-time size.
+    auto vectors = std::array<std::vector<int>, 2>{std::vector<int>(1), std::vector<int>(3)};
+    CHECK(SerialSize(vectors) == (1 + 3) * sizeof(int));
 }
 
 

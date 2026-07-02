@@ -71,6 +71,10 @@ constexpr auto SerialSize() -> std::size_t;
 template<typename T>
 constexpr auto SerialSize(T const & value) -> std::size_t;
 
+template<StdArray T>
+    requires(!StaticallySized<T>)
+constexpr auto SerialSize(T const & array) -> std::size_t;
+
 template<DynamicContiguousRange T>
 constexpr auto SerialSize(T const & range) -> std::size_t;
 
@@ -134,6 +138,19 @@ template<typename T>
 constexpr auto SerialSize(T const & /*value*/) -> std::size_t
 {
     return SerialSize<T>();
+}
+
+
+template<StdArray T>
+    requires(!StaticallySized<T>)
+constexpr auto SerialSize(T const & array) -> std::size_t
+{
+    auto sum = 0UZ;
+    for(auto && element : array)
+    {
+        sum += SerialSize(element);
+    }
+    return sum;
 }
 
 

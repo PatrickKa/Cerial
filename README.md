@@ -80,16 +80,43 @@ For more examples see the unit tests in
 [`Tests/UnitTests/Cerial.test.cpp`](Tests/UnitTests/Cerial.test.cpp). They cover `std::array`,
 nested ranges, ETL containers, and both byte orders.
 
-To make a user-defined type serializable, you must provide a `cerial::SerialSize<T>()`
-specialization and `SerializeTo()`/`DeserializeFrom()` overloads for it (found via
-argument-dependent lookup). The worked example at the end of the unit test file shows the full
-pattern.
+To make a user-defined type serializable, specialize `cerial::Reflection<T>` with a `static
+constexpr` tuple named `members` holding a pointer to each member, in declaration order:
+
+~~~cpp
+struct Point
+{
+    std::int16_t x;
+    std::int16_t y;
+};
+
+template<>
+struct cerial::Reflection<Point>
+{
+    static constexpr auto members = std::tuple{&Point::x, &Point::y};
+};
+~~~
+
+From that single specialization Cerial derives everything for the type: `SerialSize()`,
+`SerializeTo()`, `DeserializeFrom()`, and whether it is statically sized. Members are handled
+recursively, so a member may be any supported type, including another reflected struct. A struct is
+statically sized only if all of its members are; one with a dynamically sized member (such as a
+`std::vector`) is treated like a dynamically sized range – you provide the buffer and use
+`SerializeTo()`/`DeserializeFrom()` with the runtime `SerialSize(value)`. The worked examples at the
+end of [`Tests/UnitTests/Cerial.test.cpp`](Tests/UnitTests/Cerial.test.cpp) show both a statically
+sized and a dynamically sized struct.
+
+While the reflection approach is the easier, preferred way to make user-defined types serializable,
+you can also manually specialize `isStaticallySized` and `SerialSize()` and overload `SerializeTo()`
+and `DeserializeFrom()`. This gives you more fine-grained control and allows you to deviate from the
+simple recursive pattern that reflected user-defined types use. You could, e.g., create a special
+array type that serializes its size before its elements.
 
 
 ### Code generation
 
-Rather than writing `SerialSize()`, `SerializeTo()`, and `DeserializeFrom()` by hand, annotate a
-struct with `// @Cerial`:
+Rather than writing the `cerial::Reflection<T>` specialization by hand, annotate a struct with `//
+@Cerial`:
 
 ~~~cpp
 // MyHeader.hpp
@@ -102,9 +129,8 @@ struct MyType
 };
 ~~~
 
-Then invoke `cerial_generate()` in CMake to emit the code for those functions and write it to a
-companion header `MyHeader.cerial.hpp`. Include the companion header alongside the original to
-enable serialization.
+Then invoke `cerial_generate()` in CMake to emit the specialization into a companion header
+`MyHeader.cerial.hpp`. Include the companion header alongside the original to enable serialization.
 
 The `cerial_generate()` function is documented in full at the top of
 [`CMake/CerialGenerate.cmake`](CMake/CerialGenerate.cmake). For a complete example – the annotation,

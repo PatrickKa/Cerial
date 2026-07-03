@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <span>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -59,6 +60,39 @@ TEST_CASE("TriviallySerializable and ByteOrderSensitive")
 
 // These compile-time checks are not in Cerial.hpp to prevent depending on unnecessary standard
 // library headers or external libraries
+TEST_CASE("StaticallySized")
+{
+    using cerial::StaticallySized;
+
+    enum ScopedEnum : std::uint8_t
+    {
+        value,
+    };
+
+    STATIC_CHECK(StaticallySized<int>);
+    STATIC_CHECK(StaticallySized<ScopedEnum>);
+    STATIC_CHECK(StaticallySized<std::array<int, 3>>);
+    STATIC_CHECK(StaticallySized<std::array<std::array<int, 2>, 3>>);
+
+    STATIC_CHECK(!StaticallySized<std::vector<int>>);
+    STATIC_CHECK(!StaticallySized<std::string>);
+    STATIC_CHECK(!StaticallySized<etl::vector<int, 3>>);
+    STATIC_CHECK(!StaticallySized<etl::string<3>>);
+    STATIC_CHECK(!StaticallySized<std::array<std::vector<int>, 3>>);
+    STATIC_CHECK(!StaticallySized<std::array<etl::vector<int, 3>, 2>>);
+
+    // A non-reflected user-defined struct is not statically sized until the trait is specialized
+    struct SingleInt
+    {
+        int i;
+    };
+
+    STATIC_CHECK(!StaticallySized<SingleInt>);
+}
+
+
+// These compile-time checks are not in Cerial.hpp to prevent depending on unnecessary standard
+// library headers or external libraries
 TEST_CASE("DynamicContiguousRange")
 {
     using cerial::DynamicContiguousRange;
@@ -91,11 +125,8 @@ TEST_CASE("Runtime SerialSize()")
     CHECK(SerialSize(arrays) == 3 * 2 * sizeof(int));
     auto strings = std::vector<std::string>{"a", "bcd"};
     CHECK(SerialSize(strings) == 1 + 3);
-
-    // A std::array of dynamically sized elements has no SerialSize() because std::array forwards to
-    // the compile-time SerialSize<T>(), which needs a compile-time SerialSize<value_type>() that a
-    // dynamic range cannot provide. SerializeTo()/DeserializeFrom() still work on such arrays, as
-    // they loop instead of relying on a compile-time size.
+    auto vectors = std::array<std::vector<int>, 2>{std::vector<int>(1), std::vector<int>(3)};
+    CHECK(SerialSize(vectors) == (1 + 3) * sizeof(int));
 }
 
 
@@ -257,7 +288,7 @@ TEST_CASE("Serialize etl::vector")
 {
     auto vector = etl::vector<std::uint16_t, 4>{0x0102, 0x0304};
     auto buffer = std::array<Byte, 2 * sizeof(std::uint16_t)>{};
-    CHECK(cerial::SerialSize(vector) == buffer.size());
+    REQUIRE(cerial::SerialSize(vector) == buffer.size());
 
     SECTION("Little endian")
     {
@@ -315,7 +346,7 @@ TEST_CASE("Serialize etl::vector of std::array")
         Element{0x0506, 0x0708}
     };
     auto buffer = std::array<Byte, 4 * sizeof(std::uint16_t)>{};
-    CHECK(cerial::SerialSize(vector) == buffer.size());
+    REQUIRE(cerial::SerialSize(vector) == buffer.size());
 
     SECTION("Little endian")
     {
@@ -378,7 +409,9 @@ TEST_CASE("Deserialize etl::vector of std::array")
 }
 
 
-// Example for serializing and deserializing a user-defined type
+// Example for serializing and deserializing a statically sized user-defined type. Specializing
+// Reflection<T> is all that is required: the isStaticallySized trait, the compile-time and runtime
+// SerialSize(), and SerializeTo()/DeserializeFrom() are all derived from it.
 
 namespace
 {
@@ -387,38 +420,20 @@ struct Point
     std::int16_t x;
     std::int16_t y;
 };
-
-
-template<std::endian endianness>
-auto SerializeTo(std::span<Byte> destination, Point const & point) -> std::span<Byte>
-{
-    using cerial::SerializeTo;
-    destination = SerializeTo<endianness>(destination, point.x);
-    destination = SerializeTo<endianness>(destination, point.y);
-    return destination;
-}
-
-
-template<std::endian endianness>
-auto DeserializeFrom(std::span<Byte const> source, Point & point) -> std::span<Byte const>
-{
-    using cerial::DeserializeFrom;
-    source = DeserializeFrom<endianness>(source, point.x);
-    source = DeserializeFrom<endianness>(source, point.y);
-    return source;
-}
 }
 
 
 template<>
-constexpr auto cerial::SerialSize<Point>() -> std::size_t  // NOLINT(*unneeded-internal-declaration)
+struct cerial::Reflection<Point>
 {
-    return SerialSize<decltype(Point::x)>() + SerialSize<decltype(Point::y)>();
-}
+    static constexpr auto members = std::tuple{&Point::x, &Point::y};
+};
 
 
-TEST_CASE("Serialize user-defined type")
+TEST_CASE("Serialize statically sized user-defined type")
 {
+    STATIC_CHECK(cerial::StaticallySized<Point>);
+
     auto point = Point{.x = 0x0102, .y = 0x0304};
 
     SECTION("Little endian")
@@ -441,7 +456,7 @@ TEST_CASE("Serialize user-defined type")
 }
 
 
-TEST_CASE("Deserialize user-defined type")
+TEST_CASE("Deserialize statically sized user-defined type")
 {
     auto buffer = std::array{0x01_b, 0x02_b, 0x03_b, 0x04_b};
 
@@ -458,4 +473,101 @@ TEST_CASE("Deserialize user-defined type")
         CHECK(point.x == 0x0102);
         CHECK(point.y == 0x0304);
     }
+}
+
+
+// Example for serializing and deserializing a dynamically sized user-defined type. As above, only
+// the Reflection<T> specialization is needed.
+
+namespace
+{
+struct Packet
+{
+    std::uint8_t id;
+    etl::vector<std::int16_t, 4> payload;
+};
+}
+
+
+template<>
+struct cerial::Reflection<Packet>
+{
+    static constexpr auto members = std::tuple{&Packet::id, &Packet::payload};
+};
+
+
+TEST_CASE("Serialize a dynamically sized user-defined type")
+{
+    using cerial::SerializeTo;
+
+    STATIC_CHECK(!cerial::StaticallySized<Packet>);
+
+    auto packet = Packet{
+        .id = 0xAB, .payload = {0x0102, 0x0304}
+    };
+    auto buffer = std::array<Byte, 1 + 2 * sizeof(std::int16_t)>{};
+    REQUIRE(cerial::SerialSize(packet) == buffer.size());
+
+    SECTION("Little endian")
+    {
+        auto remaining = SerializeTo<std::endian::little>(buffer, packet);
+        CHECK(remaining.empty());
+        CHECK(int(buffer[0]) == 0xAB);
+        CHECK(int(buffer[1]) == 0x02);
+        CHECK(int(buffer[2]) == 0x01);
+        CHECK(int(buffer[3]) == 0x04);
+        CHECK(int(buffer[4]) == 0x03);
+    }
+
+    SECTION("Big endian")
+    {
+        auto remaining = SerializeTo<std::endian::big>(buffer, packet);
+        CHECK(remaining.empty());
+        CHECK(int(buffer[0]) == 0xAB);
+        CHECK(int(buffer[1]) == 0x01);
+        CHECK(int(buffer[2]) == 0x02);
+        CHECK(int(buffer[3]) == 0x03);
+        CHECK(int(buffer[4]) == 0x04);
+    }
+}
+
+
+TEST_CASE("Deserialize a dynamically sized user-defined type")
+{
+    using cerial::DeserializeFrom;
+
+    auto buffer = std::array{0xAB_b, 0x01_b, 0x02_b, 0x03_b, 0x04_b};
+
+    SECTION("Little endian")
+    {
+        auto packet = Packet{.id = 0, .payload = etl::vector<std::int16_t, 4>(2)};  // Pre-sized
+        auto remaining = DeserializeFrom<std::endian::little>(buffer, packet);
+        CHECK(remaining.empty());
+        CHECK(packet.id == 0xAB);
+        REQUIRE(packet.payload.size() == 2);
+        CHECK(packet.payload[0] == 0x0201);
+        CHECK(packet.payload[1] == 0x0403);
+    }
+
+    SECTION("Big endian")
+    {
+        auto packet = Packet{.id = 0, .payload = etl::vector<std::int16_t, 4>(2)};  // Pre-sized
+        auto remaining = DeserializeFrom<std::endian::big>(buffer, packet);
+        CHECK(remaining.empty());
+        CHECK(packet.id == 0xAB);
+        REQUIRE(packet.payload.size() == 2);
+        CHECK(packet.payload[0] == 0x0102);
+        CHECK(packet.payload[1] == 0x0304);
+    }
+}
+
+
+TEST_CASE("Runtime SerialSize() of a range of dynamically sized user-defined types")
+{
+    auto packets = std::vector{
+        Packet{.id = 1, .payload = {0x0102, 0x0304}},
+        Packet{.id = 2,         .payload = {0x0506}}
+    };
+    auto expected = (1 + 2 * sizeof(std::int16_t)) + (1 + 1 * sizeof(std::int16_t));
+    CHECK(cerial::SerialSize(packets) == expected);
 }

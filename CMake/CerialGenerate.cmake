@@ -1,13 +1,15 @@
 # cerial_generate(
 #     TARGET <target>
 #     HEADERS <headers>...
-#     [OUTPUT_DIR <directory>]
-#     [INCLUDE_DIR <directory>]
+#     [OUTPUT_DIR <output-dir>]
+#     [INCLUDE_DIR <include-dir>]
 # )
 #
-# Generates SerialSize(), SerializeTo(), and DeserializeFrom() for all structs in the given header
-# files annotated with "// @Cerial". The generated files are named <stem>.cerial.hpp and placed in
-# OUTPUT_DIR. INCLUDE_DIR is added to the target's include directories.
+# Generates a cerial::Reflection<T> specialization for every struct in the given header files
+# annotated with "// @Cerial", giving each first-class Cerial support (SerialSize(), SerializeTo(),
+# DeserializeFrom(), and the isStaticallySized trait are all derived from it). The generated files
+# are named <stem>.cerial.hpp and placed in <output-dir>. <include-dir> is added to the target's
+# include directories.
 #
 # Defaults: OUTPUT_DIR = CMAKE_CURRENT_BINARY_DIR, INCLUDE_DIR = CMAKE_BINARY_DIR
 #

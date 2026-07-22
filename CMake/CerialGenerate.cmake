@@ -81,7 +81,6 @@ set(cerial_include_dirs
     if(target_type STREQUAL "INTERFACE_LIBRARY")
         set(scope INTERFACE)
     endif()
-
     target_include_directories(${ARG_TARGET} ${scope} "$<BUILD_INTERFACE:${ARG_INCLUDE_DIR}>")
     target_link_libraries(${ARG_TARGET} ${scope} Cerial::Cerial)
 endfunction()

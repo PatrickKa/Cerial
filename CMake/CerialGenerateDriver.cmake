@@ -1,6 +1,8 @@
 # Build-time driver script for generating serialization code. Invoked by cerial_generate() via
 # add_custom_command(). Expects CERIAL_PARAMETER_FILE to be set via -D.
 
+cmake_minimum_required(VERSION 3.31)
+
 if(NOT DEFINED CERIAL_PARAMETER_FILE)
     message(FATAL_ERROR "CerialGenerateDriver: CERIAL_PARAMETER_FILE is required")
 endif()

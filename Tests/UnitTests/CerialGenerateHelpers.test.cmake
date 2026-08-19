@@ -42,6 +42,22 @@ list(GET structs 0 struct)
 check("${struct}" STREQUAL "ParentStruct")
 check("${structs_members_0}" STREQUAL "j")
 
+# --- Brace initializers ---
+
+# Regression test: a brace initializer (e.g. "= {}") has its braces consumed as scope events in the
+# event stream, so the member declaration was left ending in a dangling "=" and silently dropped.
+cerial_get_structs("${data_dir}/BraceInitializers.hpp" structs)
+list(LENGTH structs n_structs)
+check("${n_structs}" EQUAL 1)
+
+list(GET structs 0 struct)
+check("${struct}" STREQUAL "BraceInitializers")
+check(
+    "${structs_members_0}"
+    STREQUAL
+    "scalar;assignEmptyBrace;assignFilledBrace;directBrace;noInit;trailing"
+)
+
 # --- Code generation ---
 
 set(expected_dir "${data_dir}/ExpectedOutput")
@@ -55,6 +71,12 @@ check("${code}" STREQUAL "${expected}")
 cerial_get_structs("${data_dir}/IgnoredDeclarations.hpp" structs)
 cerial_generate_code(structs IgnoredDeclarations.hpp code)
 file(READ "${expected_dir}/IgnoredDeclarations.hpp" expected)
+string(REPLACE "\r\n" "\n" expected "${expected}")
+check("${code}" STREQUAL "${expected}")
+
+cerial_get_structs("${data_dir}/BraceInitializers.hpp" structs)
+cerial_generate_code(structs BraceInitializers.hpp code)
+file(READ "${expected_dir}/BraceInitializers.hpp" expected)
 string(REPLACE "\r\n" "\n" expected "${expected}")
 check("${code}" STREQUAL "${expected}")
 

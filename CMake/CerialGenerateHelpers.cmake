@@ -134,8 +134,14 @@ endfunction()
 # Replaces syntactically meaningful tokens with delimited markers and splits the result into an
 # ordered event list.
 #
+# BRACE_OPEN and BRACE_CLOSE are emitted for every "{" and "}" respectively, whatever the brace
+# delimits: a namespace or struct body, a function body, or a member's brace initializer. This is a
+# regex tokenizer, not a C++ parser, so it does not distinguish them here; the consumer in
+# _cerial_process_events() relies on braces being balanced to skip over anything that is not a
+# direct data member.
+#
 # Events: ANNOTATED_STRUCT_TEMPLATE:<name>, STRUCT_TEMPLATE:<name>, ANNOTATED_STRUCT:<name>,
-#         NAMESPACE:<name>, STRUCT:<name>, OPEN, CLOSE
+#         NAMESPACE:<name>, STRUCT:<name>, BRACE_OPEN, BRACE_CLOSE
 function(_cerial_build_event_stream content out_var)
     set(separator "|||")
     set(identifier "${_CERIAL_IDENTIFIER_PATTERN}")
@@ -189,8 +195,11 @@ function(_cerial_build_event_stream content out_var)
         "${content}"
     )
 
-    string(REPLACE "{" "${separator}OPEN${separator}" content "${content}")
-    string(REPLACE "}" "${separator}CLOSE${separator}" content "${content}")
+    # Every remaining brace becomes an event. At this point struct/namespace bodies still have their
+    # opening brace, so those are captured here too, alongside function bodies and brace
+    # initializers.
+    string(REPLACE "{" "${separator}BRACE_OPEN${separator}" content "${content}")
+    string(REPLACE "}" "${separator}BRACE_CLOSE${separator}" content "${content}")
 
     # Escape semicolons so that C++ statement terminators do not split list elements
     string(REPLACE ";" "\\;" content "${content}")
@@ -198,12 +207,25 @@ function(_cerial_build_event_stream content out_var)
     set(${out_var} "${events}" PARENT_SCOPE)
 endfunction()
 
+# Consumes the event list from _cerial_build_event_stream() and produces, in <out_var>, the list of
+# annotated top-level (non-nested, non-template) struct names, plus each struct's member names in
+# <out_var>_members_<i>.
+#
+# Two pieces of state drive this:
+#   - brace_names / brace_kinds: a stack of the currently-open braces. Each entry records what
+#     opened the brace ("namespace", "struct", or "other" for function bodies, blocks, and brace
+#     initializers) and its name. Only namespace and struct entries carry meaning; "other" entries
+#     exist only to keep the stack balanced. Used to build qualified names and to reject nested
+#     structs.
+#   - nested_brace_depth: while collecting a struct's members, how many braces deep we are below
+#     that struct's own body. Member text is only read at depth 0; anything deeper (a brace
+#     initializer, a function body, a nested type) is skipped.
 function(_cerial_process_events events out_var)
-    set(scope_names "")
-    set(scope_types "")
+    set(brace_names "")
+    set(brace_kinds "")
     set(result "")
     set(collecting FALSE)
-    set(member_depth 0)
+    set(nested_brace_depth 0)
     set(current_struct_index -1)
     set(current_members "")
 
@@ -211,21 +233,21 @@ function(_cerial_process_events events out_var)
         string(STRIP "${event}" event)
         if(event STREQUAL "")
             continue()
-        elseif(event STREQUAL "OPEN")
-            list(APPEND scope_names "")
-            list(APPEND scope_types "other")
+        elseif(event STREQUAL "BRACE_OPEN")
+            list(APPEND brace_names "")
+            list(APPEND brace_kinds "other")
             if(collecting)
-                math(EXPR member_depth "${member_depth} + 1")
+                math(EXPR nested_brace_depth "${nested_brace_depth} + 1")
             endif()
-        elseif(event STREQUAL "CLOSE")
-            list(LENGTH scope_names depth)
+        elseif(event STREQUAL "BRACE_CLOSE")
+            list(LENGTH brace_names depth)
             if(depth GREATER 0)
-                list(POP_BACK scope_names)
-                list(POP_BACK scope_types)
+                list(POP_BACK brace_names)
+                list(POP_BACK brace_kinds)
             endif()
             if(collecting)
-                if(member_depth GREATER 0)
-                    math(EXPR member_depth "${member_depth} - 1")
+                if(nested_brace_depth GREATER 0)
+                    math(EXPR nested_brace_depth "${nested_brace_depth} - 1")
                 else()
                     set(collecting FALSE)
                     set(${out_var}_members_${current_struct_index}
@@ -235,30 +257,30 @@ function(_cerial_process_events events out_var)
                 endif()
             endif()
         elseif(event MATCHES "^NAMESPACE:(.*)$")
-            list(APPEND scope_names "${CMAKE_MATCH_1}")
-            list(APPEND scope_types "namespace")
+            list(APPEND brace_names "${CMAKE_MATCH_1}")
+            list(APPEND brace_kinds "namespace")
         elseif(
             event
                 MATCHES
                 "^(STRUCT_TEMPLATE|ANNOTATED_STRUCT_TEMPLATE|ANNOTATED_STRUCT|STRUCT):(.+)$"
         )
-            set(kind "${CMAKE_MATCH_1}")
+            set(event_kind "${CMAKE_MATCH_1}")
             set(struct_name "${CMAKE_MATCH_2}")
             set(started_collecting FALSE)
 
-            if(kind STREQUAL "ANNOTATED_STRUCT_TEMPLATE")
+            if(event_kind STREQUAL "ANNOTATED_STRUCT_TEMPLATE")
                 message(
                     WARNING
                     "cerial: struct template '${struct_name}' is annotated with @Cerial but "
                     "struct templates are not supported"
                 )
-            elseif(kind STREQUAL "ANNOTATED_STRUCT")
-                list(LENGTH scope_types depth)
+            elseif(event_kind STREQUAL "ANNOTATED_STRUCT")
+                list(LENGTH brace_kinds depth)
                 set(parent_is_struct FALSE)
                 if(depth GREATER 0)
                     math(EXPR top "${depth} - 1")
-                    list(GET scope_types ${top} parent_type)
-                    if(parent_type STREQUAL "struct")
+                    list(GET brace_kinds ${top} parent_kind)
+                    if(parent_kind STREQUAL "struct")
                         set(parent_is_struct TRUE)
                     endif()
                 endif()
@@ -272,28 +294,29 @@ function(_cerial_process_events events out_var)
                 else()
                     list(LENGTH result current_struct_index)
                     _cerial_join_qualified_name(
-                        "${scope_names}"
-                        "${scope_types}"
+                        "${brace_names}"
+                        "${brace_kinds}"
                         "${struct_name}"
                         qualified_name
                     )
                     list(APPEND result "${qualified_name}")
                     set(collecting TRUE)
-                    set(member_depth 0)
+                    set(nested_brace_depth 0)
                     set(current_members "")
                     set(started_collecting TRUE)
                 endif()
             endif()
 
-            list(APPEND scope_names "${struct_name}")
-            list(APPEND scope_types "struct")
-            # Nested structs consume their opening brace, so they increase member depth.
-            # But the struct we just started collecting for does not.
+            list(APPEND brace_names "${struct_name}")
+            list(APPEND brace_kinds "struct")
+            # A struct's opening brace is absorbed into its STRUCT event rather than emitted as a
+            # BRACE_OPEN, so a nested struct must bump the nested brace depth by hand. The struct we
+            # just started collecting for is the exception: its body is depth 0.
             if(collecting AND NOT started_collecting)
-                math(EXPR member_depth "${member_depth} + 1")
+                math(EXPR nested_brace_depth "${nested_brace_depth} + 1")
             endif()
         else()
-            if(collecting AND member_depth EQUAL 0)
+            if(collecting AND nested_brace_depth EQUAL 0)
                 _cerial_parse_member_names("${event}" new_members)
                 list(APPEND current_members ${new_members})
             endif()
@@ -331,15 +354,15 @@ function(_cerial_generate_reflection struct_name members out_var)
     set(${out_var} "${code}" PARENT_SCOPE)
 endfunction()
 
-function(_cerial_join_qualified_name scope_names scope_types struct_name out_var)
+function(_cerial_join_qualified_name brace_names brace_kinds struct_name out_var)
     set(name_parts "")
-    list(LENGTH scope_names depth)
+    list(LENGTH brace_names depth)
     if(depth GREATER 0)
         math(EXPR last "${depth} - 1")
         foreach(index RANGE 0 ${last})
-            list(GET scope_types ${index} scope_type)
-            if(scope_type STREQUAL "namespace")
-                list(GET scope_names ${index} namespace_name)
+            list(GET brace_kinds ${index} brace_kind)
+            if(brace_kind STREQUAL "namespace")
+                list(GET brace_names ${index} namespace_name)
                 if(NOT namespace_name STREQUAL "") # Skip anonymous namespaces
                     # Handle inline namespace declarations (e.g. namespace a::b::c)
                     string(REPLACE "::" ";" namespace_parts "${namespace_name}")
@@ -369,11 +392,20 @@ function(_cerial_parse_member_names text out_var)
         if(declaration MATCHES "^static[ \t\n]")
             continue()
         endif()
-        # Strip default value initializers (e.g. "int x = 5" -> "int x"). The character classes
-        # around `=` exclude assignment operators that are part of `==`, `<=`, `>=`, `!=` so that
-        # operator overloads like operator==() are not mangled. The captured character before `=`
-        # is preserved via \1.
+        # Strip a default member initializer so only "<type> <name>" is left for the name match
+        # below. In both regexes the character class before "=" excludes the compound assignment and
+        # comparison operators ("==", "<=", ">=", "!="), so operator overloads like operator==() are
+        # not mangled; the captured character before "=" is preserved via \1.
+        #
+        # Two forms have to be handled because a brace initializer is torn apart upstream: its
+        # braces become BRACE_OPEN/BRACE_CLOSE events (see _cerial_build_event_stream()), so the
+        # "{...}" never reaches this point.
+        #   - "int x = 5"                -> the value follows "=" on this line; strip "= <value>".
+        #   - "std::array<char, 7> a ="  -> "= {}" left a dangling "="; strip the trailing "=".
+        # A direct-brace initializer ("std::array<char, 7> a{}") needs no stripping here: its braces
+        # are likewise gone, leaving just "<type> <name>".
         string(REGEX REPLACE "([^!<>=])=[^=].*$" "\\1" declaration "${declaration}")
+        string(REGEX REPLACE "([^!<>=])=[ \t]*$" "\\1" declaration "${declaration}")
         string(STRIP "${declaration}" declaration)
         # Skip declarations containing parentheses. These are member or friend function
         # declarations, not data members. Function pointers happen to be skipped too, but those

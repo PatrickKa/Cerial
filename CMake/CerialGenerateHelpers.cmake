@@ -37,8 +37,12 @@ endfunction()
 # other structs are excluded.
 #
 # For each struct at index <i> in the returned list, also sets <out_var>_members_<i> to contain the
-# list of member variable names in declaration order. Static members are excluded, since they are
-# not per-instance data.
+# list of member variable names in declaration order. Only members declared one-per-statement as
+# "<type> <name>" (optionally with a default initializer) are recognized. Static members, pointer
+# and reference members, members carrying attributes, and bit-fields are ignored; a C-style array
+# member is ignored with a warning; and from a multi-declarator statement only the last name is
+# picked up. These limitations are documented as unsupported on cerial_generate() in
+# CerialGenerate.cmake.
 function(cerial_get_structs source_file out_var)
     _cerial_read_file("${source_file}" content)
     _cerial_strip_literals("${content}" content)
@@ -407,10 +411,39 @@ function(_cerial_parse_member_names text out_var)
         string(REGEX REPLACE "([^!<>=])=[^=].*$" "\\1" declaration "${declaration}")
         string(REGEX REPLACE "([^!<>=])=[ \t]*$" "\\1" declaration "${declaration}")
         string(STRIP "${declaration}" declaration)
+        # C-style array members (e.g. "int values[4];") end in one or more "[...]" extents. The
+        # serialization functions have no overload for a raw C array, so reflecting one would emit
+        # code that does not compile. Warn, naming the member, and skip it; use std::array instead.
+        # This runs before the parenthesis check so that an extent containing parentheses (e.g.
+        # "buf[sizeof(int)]") is recognized as an array rather than mistaken for a function.
+        if(declaration MATCHES "\\[[^]]*\\][ \t]*$")
+            string(REGEX REPLACE "([ \t]*\\[[^]]*\\])+[ \t]*$" "" without_extents "${declaration}")
+            string(STRIP "${without_extents}" without_extents)
+            set(member_name "${without_extents}")
+            if(without_extents MATCHES "^.+[ \t]+(${identifier})$")
+                set(member_name "${CMAKE_MATCH_1}")
+            endif()
+            message(
+                WARNING
+                "cerial: member '${member_name}' is a C-style array, which is not supported; "
+                "use std::array instead"
+            )
+            continue()
+        endif()
         # Skip declarations containing parentheses. These are member or friend function
         # declarations, not data members. Function pointers happen to be skipped too, but those
         # are not directly serializable anyway.
         if(declaration MATCHES "\\(")
+            continue()
+        endif()
+        # Skip pointer, reference, and attributed members so they are consistently rejected rather
+        # than half-recognized: the name match below would otherwise accept them as data members,
+        # yielding code that does not compile (a raw pointer has no serialization overload, a
+        # reference has no pointer-to-member) or that only works by accident (attributes). A "*" or
+        # "&" that reaches this point marks a pointer or reference, since a "= ..." initializer (the
+        # other source of those tokens) was already stripped; "[[" introduces an attribute. Reliably
+        # supporting these would need real parsing, so they are documented as unsupported.
+        if(declaration MATCHES "[*&]" OR declaration MATCHES "\\[\\[")
             continue()
         endif()
         # The greedy .+ matches the type, then backtracks to leave the last identifier as the name

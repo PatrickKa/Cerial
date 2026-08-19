@@ -58,6 +58,33 @@ check(
     "scalar;assignEmptyBrace;assignFilledBrace;directBrace;noInit;trailing"
 )
 
+# --- C-array members ---
+
+# Regression test: C-style array members are not serializable, so each is excluded with a warning
+# rather than reflected. Covers multiple dimensions, a size with parentheses, and a brace
+# initializer; only the two plain members survive.
+cerial_get_structs("${data_dir}/CArrayMembers.hpp" structs)
+list(LENGTH structs n_structs)
+check("${n_structs}" EQUAL 1)
+
+list(GET structs 0 struct)
+check("${struct}" STREQUAL "CArrayMembers")
+check("${structs_members_0}" STREQUAL "scalar;trailing")
+
+# --- Unsupported members ---
+
+# Regression test: pointer, reference, and attributed members were recognized by the
+# final-identifier match and reflected anyway, producing code that does not compile; they must be
+# excluded instead. Bit-fields have no address and are excluded too. Only the two plain members
+# survive.
+cerial_get_structs("${data_dir}/UnsupportedMembers.hpp" structs)
+list(LENGTH structs n_structs)
+check("${n_structs}" EQUAL 1)
+
+list(GET structs 0 struct)
+check("${struct}" STREQUAL "UnsupportedMembers")
+check("${structs_members_0}" STREQUAL "supported;alsoSupported")
+
 # --- Code generation ---
 
 set(expected_dir "${data_dir}/ExpectedOutput")
@@ -77,6 +104,18 @@ check("${code}" STREQUAL "${expected}")
 cerial_get_structs("${data_dir}/BraceInitializers.hpp" structs)
 cerial_generate_code(structs BraceInitializers.hpp code)
 file(READ "${expected_dir}/BraceInitializers.hpp" expected)
+string(REPLACE "\r\n" "\n" expected "${expected}")
+check("${code}" STREQUAL "${expected}")
+
+cerial_get_structs("${data_dir}/CArrayMembers.hpp" structs)
+cerial_generate_code(structs CArrayMembers.hpp code)
+file(READ "${expected_dir}/CArrayMembers.hpp" expected)
+string(REPLACE "\r\n" "\n" expected "${expected}")
+check("${code}" STREQUAL "${expected}")
+
+cerial_get_structs("${data_dir}/UnsupportedMembers.hpp" structs)
+cerial_generate_code(structs UnsupportedMembers.hpp code)
+file(READ "${expected_dir}/UnsupportedMembers.hpp" expected)
 string(REPLACE "\r\n" "\n" expected "${expected}")
 check("${code}" STREQUAL "${expected}")
 

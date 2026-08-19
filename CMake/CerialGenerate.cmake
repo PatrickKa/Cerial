@@ -15,6 +15,23 @@
 #
 # The source header's include path inside the generated file is computed automatically from the
 # target's include directories.
+#
+# Only plain, non-template structs are reflected; an annotated struct template or a struct nested in
+# another struct is skipped with a warning. Within a reflected struct, each data member must be
+# declared on its own statement as "<type> <name>", optionally with a default initializer. Members
+# are recognized by a regex heuristic, not a real C++ parser, so the following forms are NOT
+# supported. All are excluded silently except C-style arrays, which are excluded with a warning
+# (they look serializable but are not); keep them out of annotated structs:
+#
+#   - Multiple declarators in one statement (e.g. "int a, b, c;"); only the last name is reflected.
+#     Declare one member per statement instead.
+#   - Raw pointer or reference members (e.g. "int* p;", "int& r;"); a pointer cannot be serialized
+#     and a reference has no pointer-to-member.
+#   - Members carrying attributes (e.g. "[[maybe_unused]] int m;").
+#   - C-style array members (e.g. "int values[4];"); use std::array instead.
+#   - Bit-fields (e.g. "int flags : 4;"), whose address cannot be taken.
+#
+# Static members are excluded as well, since they are not per-instance data.
 function(cerial_generate)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "" "TARGET;OUTPUT_DIR;INCLUDE_DIR" "HEADERS")
 

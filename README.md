@@ -132,6 +132,18 @@ struct MyType
 Then invoke `cerial_generate()` in CMake to emit the specialization into a companion header
 `MyHeader.cerial.hpp`. Include the companion header alongside the original to enable serialization.
 
+The generator recognizes each data member declared on its own statement as `<type> <name>`,
+optionally with a default initializer. Members are matched by a regex heuristic rather than a full
+C++ parser, so the following forms are not supported. All are ignored silently except C-style
+arrays, which are ignored with a warning – keep them out of annotated structs:
+
+- multiple declarators in one statement (`int a, b, c;`) – only the last name is reflected, so
+  declare one member per statement instead
+- raw pointer or reference members (`int* p;`, `int& r;`), which cannot be serialized
+- members carrying attributes (`[[maybe_unused]] int m;`)
+- C-style array members (`int values[4];`) – use `std::array` instead
+- bit-fields (`int flags : 4;`), whose address cannot be taken
+
 The `cerial_generate()` function is documented in full at the top of
 [`CMake/CerialGenerate.cmake`](CMake/CerialGenerate.cmake). For a complete example – the annotation,
 the CMake wiring, and the consuming test – see the integration tests in

@@ -239,8 +239,16 @@ template<Reflected T>
     requires(!StaticallySized<T>)
 constexpr auto SerialSize(T const & t) -> std::size_t
 {
-    return std::apply([&](auto... members) { return (SerialSize(t.*members) + ... + 0UZ); },
-                      Reflection<T>::members);
+    // See the note in the reflected SerializeTo(): iterating over member indexes keeps the -O0
+    // stack usage independent of the number of members.
+    auto size = 0UZ;
+    auto addMemberSize = [&]<std::size_t i>()
+    { size += SerialSize(t.*std::get<i>(Reflection<T>::members)); };
+    [&]<std::size_t... i>(std::index_sequence<i...>)
+    {
+        (addMemberSize.template operator()<i>(), ...);
+    }(std::make_index_sequence<std::tuple_size_v<decltype(Reflection<T>::members)>>{});
+    return size;
 }
 
 
@@ -333,9 +341,18 @@ auto DeserializeFrom(std::span<Byte const> source, T & range) -> std::span<Byte 
 template<std::endian endianness, Reflected T>
 auto SerializeTo(std::span<Byte> destination, T const & t) -> std::span<Byte>
 {
-    std::apply([&](auto... members)
-               { ((destination = SerializeTo<endianness>(destination, t.*members)), ...); },
-               Reflection<T>::members);
+    // We iterate over the member indexes instead of the members themselves to keep the stack usage
+    // at -O0 independent of the number of members. This significantly reduces stack usage for large
+    // structs. std::apply() would forward all members as function arguments through three layers of
+    // libstdc++ helpers, each of which spills all of them into its own stack frame. Passing the
+    // index as a template parameter also means that the calls in the fold have no arguments whose
+    // temporaries would live until the end of the fold.
+    auto serializeMember = [&]<std::size_t i>()
+    { destination = SerializeTo<endianness>(destination, t.*std::get<i>(Reflection<T>::members)); };
+    [&]<std::size_t... i>(std::index_sequence<i...>)
+    {
+        (serializeMember.template operator()<i>(), ...);
+    }(std::make_index_sequence<std::tuple_size_v<decltype(Reflection<T>::members)>>{});
     return destination;
 }
 
@@ -343,9 +360,14 @@ auto SerializeTo(std::span<Byte> destination, T const & t) -> std::span<Byte>
 template<std::endian endianness, Reflected T>
 auto DeserializeFrom(std::span<Byte const> source, T & t) -> std::span<Byte const>
 {
-    std::apply([&](auto... members)
-               { ((source = DeserializeFrom<endianness>(source, t.*members)), ...); },
-               Reflection<T>::members);
+    // See the note in the reflected SerializeTo(): iterating over member indexes keeps the -O0
+    // stack usage independent of the number of members.
+    auto deserializeMember = [&]<std::size_t i>()
+    { source = DeserializeFrom<endianness>(source, t.*std::get<i>(Reflection<T>::members)); };
+    [&]<std::size_t... i>(std::index_sequence<i...>)
+    {
+        (deserializeMember.template operator()<i>(), ...);
+    }(std::make_index_sequence<std::tuple_size_v<decltype(Reflection<T>::members)>>{});
     return source;
 }
 
